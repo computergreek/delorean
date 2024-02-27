@@ -7,30 +7,82 @@
 import Cocoa
 import UserNotifications
 
-// Main class for handling application lifecycle events and notifications.
 @NSApplicationMain
 class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
-
-    // Called when the application has finished launching.
     func applicationDidFinishLaunching(_ aNotification: Notification) {
-        // Set this instance as the delegate for the user notification center.
-        // This allows the app to respond to notifications and to request permissions.
         UNUserNotificationCenter.current().delegate = self
-        
-        // Request authorization from the user to show notifications.
-        // This is necessary to send notifications for events like backup start or completion.
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
-            // Log the result of the permission request.
             print("Notification permission granted: \(granted)")
-            
-            // If permission was granted, send a test notification.
-            // This helps to verify that notifications are working correctly.
             if granted {
                 DispatchQueue.main.async {
-                    self.sendTestNotification() // Call the method to send a test notification.
+                    self.sendTestNotification()
                 }
             }
         }
+        setupBackupSchedule()
+    }
+
+    private func setupBackupSchedule() {
+        let fileManager = FileManager.default
+        let plistPath = "\(NSHomeDirectory())/Library/LaunchAgents/com.emit.delorean.plist"
+        
+        // Attempt to locate the backupCheck.sh script in the application's resources
+        guard let scriptPath = Bundle.main.path(forResource: "backupCheck", ofType: "sh") else {
+            print("Unable to find the backupCheck.sh script in the app bundle.")
+            return
+        }
+
+        var needsUpdate = true
+
+        if fileManager.fileExists(atPath: plistPath) {
+            let existingPlistContent = try? String(contentsOfFile: plistPath, encoding: .utf8)
+            let intendedPlistContent = self.intendedPlistContent(scriptPath: scriptPath)
+            needsUpdate = (existingPlistContent != intendedPlistContent)
+        }
+
+        if needsUpdate {
+            do {
+                try self.intendedPlistContent(scriptPath: scriptPath).write(toFile: plistPath, atomically: true, encoding: .utf8)
+
+                // Load the plist into launchd
+                let task = Process()
+                task.launchPath = "/bin/launchctl"
+                task.arguments = ["load", plistPath]
+                task.launch()
+            } catch {
+                print("Error setting up backup schedule: \(error)")
+            }
+        }
+    }
+
+    private func intendedPlistContent(scriptPath: String) -> String {
+        // This function returns the XML content for the launch agent plist
+        // It uses the provided scriptPath for the backup script
+        return """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>Label</key>
+            <string>com.emit.delorean</string>
+            <key>ProgramArguments</key>
+            <array>
+                <string>/bin/bash</string>
+                <string>\(scriptPath)</string>
+                <string>automated</string>  <!-- This is new, indicating an automated backup -->
+            </array>
+            <key>StartCalendarInterval</key>
+            <array>
+                <dict>
+                    <key>Hour</key>
+                    <integer>9</integer>
+                    <key>Minute</key>
+                    <integer>0</integer>
+                </dict>
+            </array>
+        </dict>
+        </plist>
+        """
     }
 
     // Called when the application is about to terminate.

@@ -24,6 +24,6 @@ echo "$(date '+%Y-%m-%d %H:%M:%S')$exit_codes" >> "$DEST/dBackup.log"
 echo "Backup completed."
 
 # basically all this is doing is running this command:
-# rsync --archive --verbose --partial --progress --stats --delete --exclude='Pictures/Photos Library.photoslibrary' --exclude='.DS_Store' ~/Pictures ~/Downloads ~/Documents /Volumes/test/$(whoami)/
+# rsync --archive --verbose --partial --progress --stats --delete --exclude="Pictures/Photos Library.photoslibrary" --exclude=".DS_Store" ~/Pictures ~/Documents "/Volumes/SFA-All/User Data/$(whoami)/"
 
 # add log in DEST directory

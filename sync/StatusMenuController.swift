@@ -59,6 +59,9 @@ class StatusMenuController: NSObject {
         backupInProgressItem.isHidden = false
         backupInProgressItem.isEnabled = false
         
+        // Send a notification that the backup is starting.
+        notifyUser(title: "Backup Starting", informativeText: "Your backup has started and will continue in the background.")
+        
         // Prepare the backup task.
         backupTask = Process()
         backupTask?.launchPath = "/bin/bash" // The path to the bash executable.

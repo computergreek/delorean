@@ -16,7 +16,7 @@ exit_codes=""
 # Perform backup for each source directory
 for SOURCE in "${SOURCES[@]}"; do
     rsync "${OPTIONS[@]}" "${EXCLUDES[@]}" "$SOURCE" "$DEST"
-    exit_codes="$exit_codes $(basename "$source")-error:$?;"
+    exit_codes="$exit_codes $(basename "$SOURCE")-error:$?"
 done
 echo "$(date '+%Y-%m-%d %H:%M:%S')$exit_codes" >> "$DEST/dBackup.log"
 
@@ -26,5 +26,3 @@ echo "Backup completed."
 
 
 # add log in DEST directory
-
-

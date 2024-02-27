@@ -18,7 +18,7 @@ for SOURCE in "${SOURCES[@]}"; do
     rsync "${OPTIONS[@]}" "${EXCLUDES[@]}" "$SOURCE" "$DEST"
     exit_codes="$exit_codes $(basename "$source")-error:$?;"
 done
-echo "$(date '+%Y-%m-%d %H:%M:%S')$exit_codes" >> /sfa-all/user\ data/gatorlink/dBackup.log
+echo "$(date '+%Y-%m-%d %H:%M:%S')$exit_codes" >> "$DEST/dBackup.log"
 
 
 echo "Backup completed."

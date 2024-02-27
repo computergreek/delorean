@@ -1,3 +1,5 @@
+forked over from: https://github.com/jnsdrtlf/sync/tree/master
+
 # Sync – Simple Backup Utility
 Simple macOS tray application to syncronize a folder using `rsync`.
 
@@ -7,23 +9,11 @@ Using a small bash script, this swift application just provides an interface to 
 
 ## Setup
 You need the latest Xcode to configure `sync` for your system. There is no ready-to-use binary yet.
-
-Import the project and change these lines in `StatusMenuController.swift`:
-```Swift
-task.arguments?.append("[SOURCE]")
-task.arguments?.append("[DEST]")
-
-// e.g. copy files from 'foo/bar' to '/Volumes/usb/foo/bar':
-// task.arguments?.append("foo/bar")
-// task.arguments?.append("/Volumes/usb/foo/bar")
-```
-
-You might want to change the text for the menu items in the `MainMenu.xib` file and add more items.
+Import the project and change the 'DEST=' and 'SOURCES=' lines in `sync_files.sh`:
 
 ## License
 
 The white refresh icon is made by Cole Bemis and is part of the awesome [feathericons](https://feathericons.com/) icon set, released under the MIT License.
-
 
 Copyright 2019 Jonas Drotleff <jonas.drotleff@gmail.com>
 

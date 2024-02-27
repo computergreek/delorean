@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="22505" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" customObjectInstantitationMethod="direct">
+    <dependencies>
+        <deployment identifier="macosx"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="22505"/>
+    </dependencies>
+    <objects>
+        <customObject id="-2" userLabel="File's Owner" customClass="NSApplication"/>
+        <customObject id="-1" userLabel="First Responder" customClass="FirstResponder"/>
+        <customObject id="-3" userLabel="Application" customClass="NSObject"/>
+        <customObject id="Voe-Tx-rLC" customClass="AppDelegate" customModule="sync" customModuleProvider="target"/>
+        <customObject id="YLy-65-1bz" customClass="NSFontManager"/>
+        <customObject id="zNT-n7-GYd" customClass="StatusMenuController" customModule="sync" customModuleProvider="target">
+            <connections>
+                <outlet property="abortBackupItem" destination="7na-V6-pnz" id="EMM-zj-Bfv"/>
+                <outlet property="backupInProgressItem" destination="z2v-DJ-uIr" id="Tbw-Nb-JIt"/>
+                <outlet property="startBackupItem" destination="hS0-Yd-pPC" id="hwb-hd-r3A"/>
+                <outlet property="statusMenu" destination="pZM-fr-sx3" id="tuj-FO-eOX"/>
+            </connections>
+        </customObject>
+        <menu autoenablesItems="NO" id="pZM-fr-sx3">
+            <items>
+                <menuItem title="Start Backup" id="hS0-Yd-pPC">
+                    <modifierMask key="keyEquivalentModifierMask"/>
+                    <connections>
+                        <action selector="startBackupClicked:" target="zNT-n7-GYd" id="XyZ-Im-yiG"/>
+                    </connections>
+                </menuItem>
+                <menuItem isSeparatorItem="YES" id="KVA-5V-Ku8"/>
+                <menuItem title="Backup in progress..." id="z2v-DJ-uIr">
+                    <modifierMask key="keyEquivalentModifierMask"/>
+                </menuItem>
+                <menuItem title="Abort Backup" id="7na-V6-pnz">
+                    <modifierMask key="keyEquivalentModifierMask"/>
+                    <connections>
+                        <action selector="abortBackupClicked:" target="zNT-n7-GYd" id="UnX-7g-Tqr"/>
+                    </connections>
+                </menuItem>
+                <menuItem isSeparatorItem="YES" id="XKl-Sh-LXm"/>
+                <menuItem title="Quit" id="usY-IT-vLg">
+                    <modifierMask key="keyEquivalentModifierMask"/>
+                    <connections>
+                        <action selector="quitClickedWithSender:" target="zNT-n7-GYd" id="S0i-tb-p8X"/>
+                    </connections>
+                </menuItem>
+            </items>
+            <point key="canvasLocation" x="-447" y="209"/>
+        </menu>
+    </objects>
+</document>

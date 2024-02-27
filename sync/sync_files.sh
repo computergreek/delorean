@@ -5,8 +5,13 @@
 SOURCES=("$HOME/Pictures" "$HOME/Documents")
 
 # Define destination directory
-# DEST="/Volumes/test/$(whoami)/"
 DEST="/Volumes/SFA-All/User Data/$(whoami)/"
+
+# Check if the network drive is mounted by testing if the destination directory exists and is accessible
+if [ ! -d "$DEST" ]; then
+    echo "Error: Destination directory $DEST does not exist or is not accessible."
+    exit 1  # Exit the script with an error status
+fi
 
 # Rsync options and excludes as arrays
 OPTIONS=(--archive --verbose --partial --progress --stats --delete)

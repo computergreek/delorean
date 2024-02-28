@@ -1,10 +1,16 @@
 #!/bin/bash
 
-#  backupCheck.sh
-#  sync
-#
-#  Created by Kostantinos Korominas on 2/27/24.
-#  Copyright © 2024 Jonas Drotleff. All rights reserved.
+# Define the specific time you want the backup to happen
+backup_hour=09
+backup_minute=00
+
+# Define the start and end hours for the backup range
+range_start=07
+range_end=19
+
+# Get the current hour and minute
+current_hour=$(date '+%H')
+current_minute=$(date '+%M')
 
 # Check if this is an automated run (argument passed to the script)
 if [ "$1" == "automated" ]; then
@@ -17,10 +23,15 @@ if [ "$1" == "automated" ]; then
         exit 0
     fi
 
-    # Check if the current time is within working hours (7 AM to 7 PM)
-    HOUR=$(date '+%H')
-    if [ "$HOUR" -lt 7 ] || [ "$HOUR" -gt 19 ]; then
-        echo "Outside of working hours for automated backup."
+    # Check if the current time is within the specified backup range
+    if [ "$current_hour" -lt "$range_start" ] || [ "$current_hour" -gt "$range_end" ]; then
+        echo "Outside of backup hours range."
+        exit 0
+    fi
+
+    # Check if the current time matches the specified backup time
+    if [ "$current_hour" -ne "$backup_hour" ] || [ "$current_minute" -ne "$backup_minute" ]; then
+        echo "It is not the scheduled backup time yet."
         exit 0
     fi
 fi

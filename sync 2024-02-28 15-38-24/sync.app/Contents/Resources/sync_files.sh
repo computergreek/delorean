@@ -1,12 +1,5 @@
 #!/bin/bash
 
-# Backup scheduling parameters
-backup_hour="09"
-backup_minute="00"
-range_start="07"
-range_end="19"
-frequency_check="3600"  # how often the app should check if an rsync happened that day in seconds (3600 seconds = 1 hour)
-
 # Define source directories
 SOURCES=("$HOME/Pictures" "$HOME/Downloads" "$HOME/Desktop" "$HOME/Documents")
 #SOURCES=("$HOME/Pictures" "$HOME/Downloads" "$HOME/Documents")
@@ -23,7 +16,8 @@ if [ ! -d "$DEST" ]; then
 fi
 
 # Rsync options and excludes as arrays
-OPTIONS=(--archive --verbose --partial --progress --stats --delete)
+#OPTIONS=(--archive --verbose --partial --progress --stats --delete)
+OPTIONS=(--archive --partial --delete)
 EXCLUDES=(--exclude='Pictures/Photos Library.photoslibrary' --exclude='.DS_Store')
 exit_codes=""
 
@@ -39,3 +33,5 @@ echo "Backup completed."
 
 # basically all this is doing is running this command:
 # rsync --archive --verbose --partial --progress --stats --delete --exclude="Pictures/Photos Library.photoslibrary" --exclude=".DS_Store" ~/Pictures ~/Documents "/Volumes/SFA-All/User Data/$(whoami)/"
+
+# add log in DEST directory

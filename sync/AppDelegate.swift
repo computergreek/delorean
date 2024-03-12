@@ -60,24 +60,27 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         let command = "source \(scriptPath); echo $scheduled_backup_time $range_start $range_end $frequency_check"
         executeShellCommand(command) { output in
             guard let line = output.first else { return }
+            print("Config line: \(line)")  // Add this line
             let components = line.split(separator: " ").map { String($0) }
             if components.count == 4 {
                 let timeComponents = components[0].split(separator: ":").map { String($0) }
                 if timeComponents.count == 2 {
                     self.backupHour = timeComponents[0]
                     self.backupMinute = timeComponents[1]
+                    print("Backup time set to \(self.backupHour):\(self.backupMinute)")  // Add this line
                 }
                 self.rangeStart = components[1]
                 self.rangeEnd = components[2]
                 if let frequency = TimeInterval(components[3]) {
                     self.frequency = frequency
+                    print("Frequency set to every \(self.frequency) seconds")  // Add this line
                 }
+                print("Range start: \(self.rangeStart), Range end: \(self.rangeEnd)")  // Add this line
             }
             // Once configuration is loaded, (re)start the timer
             self.startBackupTimer()
         }
     }
-
 
     private func startBackupTimer() {
         backupTimer?.invalidate()  // Stop any existing timer.
@@ -91,19 +94,30 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         let currentTimeString = formatter.string(from: Date())
         let currentDate = DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .none)
         
+        print("Current time: \(currentTimeString)")  // Add this line
+        print("Current date: \(currentDate)")  // Add this line
+        
         guard let currentTime = formatter.date(from: currentTimeString),
               let rangeStart = formatter.date(from: self.rangeStart),
               let rangeEnd = formatter.date(from: self.rangeEnd),
-              let backupTime = formatter.date(from: "\(self.backupHour):\(self.backupMinute)") else { return }
+              let backupTime = formatter.date(from: "\(self.backupHour):\(self.backupMinute)") else {
+            print("Time parsing failed")  // Add this line
+            return
+        }
+        
+        print("Scheduled backup time: \(formatter.string(from: backupTime))")  // Add this line
+        print("Backup range: \(formatter.string(from: rangeStart)) to \(formatter.string(from: rangeEnd))")  // Add this line
 
         let logFilePath = "/Volumes/SFA-All/User Data/\(NSUserName())/dBackup.log"
         var didRunBackupToday = false
         if let logContent = try? String(contentsOfFile: logFilePath, encoding: .utf8) {
             didRunBackupToday = logContent.contains(currentDate)
+            print("Did run backup today: \(didRunBackupToday)")  // Add this line
         }
 
         if !didRunBackupToday && currentTime >= rangeStart && currentTime <= rangeEnd {
             if currentTime >= backupTime {  // Check if past the scheduled backup time.
+                print("Performing scheduled backup")  // Add this line
                 performBackup()
             } else {
                 print("Not yet time for scheduled backup.")

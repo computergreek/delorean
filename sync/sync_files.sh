@@ -1,17 +1,15 @@
 #!/bin/bash
 
 # Backup scheduling parameters
-backup_hour="09"
-backup_minute="00"
-range_start="07"
-range_end="19"
-frequency_check="3600"  # how often the app should check if an rsync happened that day in seconds (3600 seconds = 1 hour)
+scheduled_backup_time="11:51"   # set time for when automatic scheduled backups should occur. use 24hr
+range_start="07:00"             # when backup range should start (e.g., 7:00am)
+range_end="19:00"               # when backup range should end (e.g., 7:00pm)
+frequency_check="3600"          # how often the app should check if an rsync happened that day in seconds (3600 seconds = 1 hour)
 
 # Define source directories
 SOURCES=("$HOME/Pictures" "$HOME/Downloads" "$HOME/Desktop" "$HOME/Documents")
 #SOURCES=("$HOME/Pictures" "$HOME/Downloads" "$HOME/Documents")
 #SOURCES=("$HOME/Pictures" "$HOME/Documents")
-
 
 # Define destination directory
 DEST="/Volumes/SFA-All/User Data/$(whoami)/"

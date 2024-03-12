@@ -24,32 +24,60 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     }
 
     // MARK: - Backup Configuration and Schedule
+//    private func loadConfig() {
+//        // Assuming 'sync_files.sh' is within the app bundle
+//        guard let scriptPath = Bundle.main.path(forResource: "sync_files", ofType: "sh") else {
+//            print("Failed to locate sync_files.sh")
+//            return
+//        }
+//
+//        let command = "grep '^backup_' \(scriptPath) | grep -v '^#' | tr -d '\"' | tr -d ' '"
+//        executeShellCommand(command) { output in
+//            output.forEach { line in
+//                let components = line.split(separator: "=").map { String($0) }
+//                if components.count == 2 {
+//                    switch components[0] {
+//                    case "backup_hour": self.backupHour = components[1]
+//                    case "backup_minute": self.backupMinute = components[1]
+//                    case "range_start": self.rangeStart = components[1]
+//                    case "range_end": self.rangeEnd = components[1]
+//                    case "frequency_check": self.frequency = TimeInterval(components[1]) ?? 3600
+//                    default: break
+//                    }
+//                }
+//            }
+//            // Once configuration is loaded, (re)start the timer
+//            self.startBackupTimer()
+//        }
+//    }
+
     private func loadConfig() {
-        // Assuming 'sync_files.sh' is within the app bundle
         guard let scriptPath = Bundle.main.path(forResource: "sync_files", ofType: "sh") else {
             print("Failed to locate sync_files.sh")
             return
         }
 
-        let command = "grep '^backup_' \(scriptPath) | grep -v '^#' | tr -d '\"' | tr -d ' '"
+        let command = "source \(scriptPath); echo $scheduled_backup_time $range_start $range_end $frequency_check"
         executeShellCommand(command) { output in
-            output.forEach { line in
-                let components = line.split(separator: "=").map { String($0) }
-                if components.count == 2 {
-                    switch components[0] {
-                    case "backup_hour": self.backupHour = components[1]
-                    case "backup_minute": self.backupMinute = components[1]
-                    case "range_start": self.rangeStart = components[1]
-                    case "range_end": self.rangeEnd = components[1]
-                    case "frequency_check": self.frequency = TimeInterval(components[1]) ?? 3600
-                    default: break
-                    }
+            guard let line = output.first else { return }
+            let components = line.split(separator: " ").map { String($0) }
+            if components.count == 4 {
+                let timeComponents = components[0].split(separator: ":").map { String($0) }
+                if timeComponents.count == 2 {
+                    self.backupHour = timeComponents[0]
+                    self.backupMinute = timeComponents[1]
+                }
+                self.rangeStart = components[1]
+                self.rangeEnd = components[2]
+                if let frequency = TimeInterval(components[3]) {
+                    self.frequency = frequency
                 }
             }
             // Once configuration is loaded, (re)start the timer
             self.startBackupTimer()
         }
     }
+
 
     private func startBackupTimer() {
         backupTimer?.invalidate()  // Stop any existing timer.

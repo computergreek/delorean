@@ -7,8 +7,12 @@
     <objects>
         <customObject id="-2" userLabel="File's Owner" customClass="NSApplication"/>
         <customObject id="-1" userLabel="First Responder" customClass="FirstResponder"/>
-        <customObject id="-3" userLabel="Application" customClass="NSObject"/>
-        <customObject id="Voe-Tx-rLC" customClass="AppDelegate" customModule="sync" customModuleProvider="target"/>
+        <customObject id="-3" userLabel="Application">
+            <connections>
+                <outlet property="delegate" destination="3DX-jI-6au" id="Vva-cs-uHJ"/>
+            </connections>
+        </customObject>
+        <customObject id="3DX-jI-6au" customClass="AppDelegate" customModule="sync" customModuleProvider="target"/>
         <customObject id="YLy-65-1bz" customClass="NSFontManager"/>
         <customObject id="zNT-n7-GYd" customClass="StatusMenuController" customModule="sync" customModuleProvider="target">
             <connections>
@@ -44,7 +48,7 @@
                     </connections>
                 </menuItem>
             </items>
-            <point key="canvasLocation" x="-447" y="209"/>
+            <point key="canvasLocation" x="-1113" y="-21"/>
         </menu>
     </objects>
 </document>

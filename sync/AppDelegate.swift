@@ -56,105 +56,237 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             print("Failed to locate sync_files.sh")
             return
         }
+        
+        // Assuming your script outputs the configuration directly when called with 'config'
+        let command = "bash \(scriptPath) config"
+        print("Executing command: \(command)")
+        executeShellCommand(command) { [weak self] output in
+            guard let self = self else { return }
 
-        let command = "source \(scriptPath); echo $scheduled_backup_time $range_start $range_end $frequency_check"
-        executeShellCommand(command) { output in
-            guard let line = output.first else { return }
-            print("Config line: \(line)")  // Add this line
-            let components = line.split(separator: " ").map { String($0) }
-            if components.count == 4 {
-                let timeComponents = components[0].split(separator: ":").map { String($0) }
+            // Combine the output into a single string and then split it by new lines.
+            let combinedOutput = output.joined(separator: "\n")
+            let configurations = combinedOutput.components(separatedBy: CharacterSet.newlines)
+
+            // Now 'configurations' should correctly contain separate lines.
+            if configurations.count < 4 {
+                print("Configuration output was unexpected or incomplete: \(configurations)")
+                return
+            }
+
+            self.parseSchedulerSettings(schedulerSettings: configurations)
+            DispatchQueue.main.async {
+                self.startBackupTimer()
+            }
+        }
+    }
+
+    
+    private func parseSchedulerSettings(schedulerSettings: [String]) {
+        schedulerSettings.forEach { setting in
+            let components = setting.split(separator: "=").map { String($0) }
+            guard components.count == 2 else { return }
+            switch components[0] {
+            case "scheduled_backup_time":
+                let timeComponents = components[1].split(separator: ":").map { String($0) }
                 if timeComponents.count == 2 {
                     self.backupHour = timeComponents[0]
                     self.backupMinute = timeComponents[1]
-                    print("Backup time set to \(self.backupHour):\(self.backupMinute)")  // Add this line
                 }
+            case "range_start":
                 self.rangeStart = components[1]
-                self.rangeEnd = components[2]
-                if let frequency = TimeInterval(components[3]) {
+            case "range_end":
+                self.rangeEnd = components[1]
+            case "frequency_check":
+                if let frequency = TimeInterval(components[1]) {
                     self.frequency = frequency
-                    print("Frequency set to every \(self.frequency) seconds")  // Add this line
                 }
-                print("Range start: \(self.rangeStart), Range end: \(self.rangeEnd)")  // Add this line
+            default: break
             }
-            // Once configuration is loaded, (re)start the timer
-            self.startBackupTimer()
         }
+        print("Configuration Loaded: Backup time: \(self.backupHour):\(self.backupMinute), Range: \(self.rangeStart)-\(self.rangeEnd), Frequency: \(self.frequency) seconds")
     }
 
+
+//    private func startBackupTimer() {
+//        backupTimer?.invalidate()  // Stop any existing timer.
+//        backupTimer = Timer.scheduledTimer(timeInterval: frequency, target: self, selector: #selector(checkBackupSchedule), userInfo: nil, repeats: true)
+//        checkBackupSchedule()  // Also perform an immediate check.
+//    }
     private func startBackupTimer() {
+        print("Setting up backup timer with frequency: \(frequency)")
         backupTimer?.invalidate()  // Stop any existing timer.
         backupTimer = Timer.scheduledTimer(timeInterval: frequency, target: self, selector: #selector(checkBackupSchedule), userInfo: nil, repeats: true)
+        print("Backup timer set and first check initiated")
         checkBackupSchedule()  // Also perform an immediate check.
     }
 
+
     @objc private func checkBackupSchedule() {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-        let currentTimeString = formatter.string(from: Date())
-        let currentDate = DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .none)
-        
-        print("Current time: \(currentTimeString)")  // Add this line
-        print("Current date: \(currentDate)")  // Add this line
-        
-        guard let currentTime = formatter.date(from: currentTimeString),
-              let rangeStart = formatter.date(from: self.rangeStart),
-              let rangeEnd = formatter.date(from: self.rangeEnd),
-              let backupTime = formatter.date(from: "\(self.backupHour):\(self.backupMinute)") else {
-            print("Time parsing failed")  // Add this line
-            return
-        }
-        
-        print("Scheduled backup time: \(formatter.string(from: backupTime))")  // Add this line
-        print("Backup range: \(formatter.string(from: rangeStart)) to \(formatter.string(from: rangeEnd))")  // Add this line
+        DispatchQueue.global(qos: .background).async { [weak self] in
+            guard let self = self else { return }
 
-        let logFilePath = "/Volumes/SFA-All/User Data/\(NSUserName())/dBackup.log"
-        var didRunBackupToday = false
-        if let logContent = try? String(contentsOfFile: logFilePath, encoding: .utf8) {
-            didRunBackupToday = logContent.contains(currentDate)
-            print("Did run backup today: \(didRunBackupToday)")  // Add this line
-        }
+            let formatter = DateFormatter()
+            formatter.dateFormat = "HH:mm"
+            let currentDate = Date()
+            let currentTimeString = formatter.string(from: currentDate)
 
-        if !didRunBackupToday && currentTime >= rangeStart && currentTime <= rangeEnd {
-            if currentTime >= backupTime {  // Check if past the scheduled backup time.
-                print("Performing scheduled backup")  // Add this line
-                performBackup()
-            } else {
-                print("Not yet time for scheduled backup.")
+            // Define the current date in string format
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateStyle = .short
+            dateFormatter.timeStyle = .none
+            let currentDateStr = dateFormatter.string(from: currentDate)
+
+            print("Attempting to parse current time string: \(currentTimeString)")
+            print("Configured times - Scheduled: \(self.backupHour):\(self.backupMinute), Start: \(self.rangeStart), End: \(self.rangeEnd)")
+
+
+            guard let currentTime = formatter.date(from: currentTimeString),
+                  let rangeStartTime = formatter.date(from: self.rangeStart),
+                  let rangeEndTime = formatter.date(from: self.rangeEnd),
+                  let scheduledTime = formatter.date(from: "\(self.backupHour):\(self.backupMinute)") else {
+                DispatchQueue.main.async {
+                    if formatter.date(from: currentTimeString) == nil {
+                        print("Current time string could not be parsed correctly: \(currentTimeString)")
+                    }
+                    if formatter.date(from: self.rangeStart) == nil {
+                        print("Start time string could not be parsed correctly: \(self.rangeStart)")
+                    }
+                    if formatter.date(from: self.rangeEnd) == nil {
+                        print("End time string could not be parsed correctly: \(self.rangeEnd)")
+                    }
+                    if formatter.date(from: "\(self.backupHour):\(self.backupMinute)") == nil {
+                        print("Scheduled time string could not be parsed correctly: \(self.backupHour):\(self.backupMinute)")
+                    }
+                }
+                return
             }
-        } else if didRunBackupToday {
-            print("Backup already completed for today.")
-        } else {
-            print("Current time is outside the backup window.")
+
+            // Construct the log file path and check if a backup has already been performed today.
+            let logFilePath = "/Volumes/SFA-All/User Data/\(NSUserName())/dBackup.log"
+            var didRunBackupToday = false
+            if let logContent = try? String(contentsOfFile: logFilePath, encoding: .utf8) {
+                didRunBackupToday = logContent.contains(currentDateStr)
+            }
+
+            DispatchQueue.main.async {
+                // Check if current time is within the backup window and no backup has been performed today.
+                if currentTime >= rangeStartTime && currentTime <= rangeEndTime && !didRunBackupToday {
+                    if currentTime >= scheduledTime {
+                        print("Performing scheduled backup")
+                        self.performBackup()
+                    } else {
+                        print("It's not yet time for scheduled backup. Scheduled time is \(self.backupHour):\(self.backupMinute), current time is \(currentTimeString).")
+                    }
+                } else {
+                    if didRunBackupToday {
+                        print("Backup already completed for today.")
+                    } else {
+                        print("Current time is outside the backup window or other condition not met.")
+                    }
+                }
+            }
         }
     }
 
+
+
+
+//    private func performBackup() {
+//        guard let scriptPath = Bundle.main.path(forResource: "sync_files", ofType: "sh") else {
+//            print("Failed to locate sync_files.sh for backup")
+//            return
+//        }
+//        executeShellCommand("/bin/bash \(scriptPath)") { output in
+//            print("Backup process completed: \(output.joined(separator: "\n"))")
+//        }
+//    }
+//    private func performBackup() {
+//        print("Attempting to perform backup")
+//        guard let scriptPath = Bundle.main.path(forResource: "sync_files", ofType: "sh") else {
+//            print("Failed to locate sync_files.sh for backup")
+//            return
+//        }
+//        print("Script path: \(scriptPath)")
+//        executeShellCommand("/bin/bash \(scriptPath)") { output in
+//            print("Backup process initiated")
+//            print("Backup process completed: \(output.joined(separator: "\n"))")
+//        }
+//        print("performBackup function end reached")
+//    }
+    
     private func performBackup() {
-        guard let scriptPath = Bundle.main.path(forResource: "sync_files", ofType: "sh") else {
-            print("Failed to locate sync_files.sh for backup")
-            return
-        }
-        executeShellCommand("/bin/bash \(scriptPath)") { output in
-            print("Backup process completed: \(output.joined(separator: "\n"))")
+        DispatchQueue.global(qos: .background).async { [weak self] in
+            guard let self = self else { return }
+            guard let scriptPath = Bundle.main.path(forResource: "sync_files", ofType: "sh") else {
+                DispatchQueue.main.async {
+                    print("Failed to locate sync_files.sh for backup")
+                }
+                return
+            }
+            DispatchQueue.main.async {
+                print("Attempting to perform backup")
+            }
+            self.executeShellCommand("/bin/bash \(scriptPath)") { output in
+                DispatchQueue.main.async {
+                    print("Backup process initiated")
+                    print("Backup process completed: \(output.joined(separator: "\n"))")
+                }
+            }
         }
     }
+
+
 
     // MARK: - Helper Methods
+//    private func executeShellCommand(_ command: String, completion: @escaping ([String]) -> Void) {
+//        let process = Process()
+//        let pipe = Pipe()
+//
+//        process.launchPath = "/bin/bash"
+//        process.arguments = ["-c", command]
+//        process.standardOutput = pipe
+//
+//        process.launch()
+//
+//        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+//        let output = String(data: data, encoding: .utf8)?.components(separatedBy: "\n").filter { !$0.isEmpty } ?? []
+//        
+//        completion(output)
+//    }
     private func executeShellCommand(_ command: String, completion: @escaping ([String]) -> Void) {
-        let process = Process()
-        let pipe = Pipe()
-
-        process.launchPath = "/bin/bash"
-        process.arguments = ["-c", command]
-        process.standardOutput = pipe
-
-        process.launch()
-
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        let output = String(data: data, encoding: .utf8)?.components(separatedBy: "\n").filter { !$0.isEmpty } ?? []
-        
-        completion(output)
+        DispatchQueue.global(qos: .background).async {
+            let process = Process()
+            let pipe = Pipe()
+            
+            process.launchPath = "/bin/bash"
+            process.arguments = ["-c", command]
+            process.standardOutput = pipe
+            
+            let outHandle = pipe.fileHandleForReading
+            outHandle.waitForDataInBackgroundAndNotify()  // Listen for data in the background
+            
+            var output = [String]()
+            let observer = NotificationCenter.default.addObserver(forName: .NSFileHandleDataAvailable,
+                                                                  object: outHandle, queue: nil) { notification in
+                let data = outHandle.availableData
+                if let str = String(data: data, encoding: .utf8) {
+                    output.append(str)
+                }
+                outHandle.waitForDataInBackgroundAndNotify()  // Continue listening for data
+            }
+            
+            process.terminationHandler = { _ in
+                NotificationCenter.default.removeObserver(observer)
+                DispatchQueue.main.async {
+                    completion(output)
+                }
+            }
+            
+            process.launch()
+            process.waitUntilExit()
+        }
     }
+
 
     // MARK: - User Notification Center Delegate Methods
     // This method is called when a notification is about to be presented while the app is in the foreground.

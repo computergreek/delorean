@@ -1,10 +1,25 @@
 #!/bin/bash
 
+#!/bin/bash
+
+if [ "$1" = "config" ]; then
+    echo "scheduled_backup_time=09:30"
+    echo "range_start=07:00"
+    echo "range_end=21:00"
+    echo "frequency_check=3600"
+    exit 0  # Stop the script after outputting the configuration
+fi
+
 # Backup scheduling parameters
-scheduled_backup_time="15:50"   # set time for when automatic scheduled backups should occur. use 24hr
-range_start="07:00"             # when backup range should start (e.g., 7:00am)
-range_end="19:00"               # when backup range should end (e.g., 7:00pm)
-frequency_check="3600"          # how often the app should check if an rsync happened that day in seconds (3600 seconds = 1 hour)
+echo scheduled_backup_time="09:30"   # set time for when automatic scheduled backups should occur. use 24hr
+echo range_start="07:00"             # when backup range should start (e.g., 7:00am)
+echo range_end="19:00"               # when backup range should end (e.g., 7:00pm)
+echo frequency_check="3600"          # how often the app should check if an rsync happened that day in seconds (3600 seconds = 1 hour)
+
+#echo "scheduled_backup_time=09:00"  # Use HH:mm format
+#echo "range_start=07:00"  # Use HH:mm format
+#echo "range_end=19:00"  # Use HH:mm format
+#echo "frequency_check=3600"
 
 # Define source directories
 # SOURCES=("$HOME/Pictures" "$HOME/Downloads" "$HOME/Desktop" "$HOME/Documents")

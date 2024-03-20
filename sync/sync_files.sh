@@ -4,7 +4,7 @@
 scheduledBackupTime="09:30"
 rangeStart="07:00"
 rangeEnd="19:00"
-frequencyCheck="60" # How often the app should check if an rsync happened that day in seconds (3600 seconds = 1 hour)
+frequencyCheck="320" # How often the app should check if an rsync happened that day in seconds (3600 seconds = 1 hour)
 
 # Define source directories
 #SOURCES=("$HOME/Pictures" "$HOME/Downloads" "$HOME/Desktop" "$HOME/Documents")

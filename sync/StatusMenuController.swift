@@ -1,6 +1,11 @@
 import Cocoa
 import UserNotifications
 
+extension Notification.Name {
+    static let backupDidStart = Notification.Name("backupDidStart")
+    static let backupDidFinish = Notification.Name("backupDidFinish")
+}
+
 class StatusMenuController: NSObject {
     // MARK: - Outlets
     // Connect these outlets to the corresponding UI elements in MainMenu.xib
@@ -22,7 +27,18 @@ class StatusMenuController: NSObject {
         super.awakeFromNib()
         setupMenuIcon()
         setupInitialMenuState()
+        NotificationCenter.default.addObserver(self, selector: #selector(backupDidStart), name: .backupDidStart, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(backupDidFinish), name: .backupDidFinish, object: nil)
     }
+    
+    @objc func backupDidStart() {
+        updateUIForBackupStart()
+    }
+
+    @objc func backupDidFinish() {
+        updateUIForBackupEnd()
+    }
+    
 
     // Sets up the menu bar icon for the app.
     func setupMenuIcon() {
@@ -158,5 +174,24 @@ class StatusMenuController: NSObject {
         alert.addButton(withTitle: "Cancel")
         // Show the dialog and return true if the user confirms they want to close.
         return alert.runModal() == .alertFirstButtonReturn
+    }
+    
+    func updateUIForBackupStart() {
+        DispatchQueue.main.async {
+            self.startBackupItem.isHidden = true
+            self.abortBackupItem.isHidden = false
+            self.abortBackupItem.isEnabled = true
+            self.backupInProgressItem.isHidden = false
+            // Additional UI updates for backup start
+        }
+    }
+
+    func updateUIForBackupEnd() {
+        DispatchQueue.main.async {
+            self.startBackupItem.isHidden = false
+            self.abortBackupItem.isHidden = true
+            self.backupInProgressItem.isHidden = true
+            // Additional UI updates for backup end
+        }
     }
 }

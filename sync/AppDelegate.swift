@@ -4,12 +4,12 @@ import UserNotifications
 @NSApplicationMain
 class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     var backupTimer: Timer?
-    var backupHour = "09"
-    var backupMinute = "00"
-    var rangeStart = "07"
-    var rangeEnd = "19"
-    var frequency: TimeInterval = 60  // Default to checking every minute.
-
+    var backupHour = ""  // Default values removed since they'll be loaded from config
+    var backupMinute = ""
+    var rangeStart = ""
+    var rangeEnd = ""
+    var frequency: TimeInterval = 60  // This could remain as a default, or be set in the script
+    
     // MARK: - App Lifecycle
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         UNUserNotificationCenter.current().delegate = self
@@ -31,17 +31,24 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             return
         }
 
-        let command = "grep '^backup_' \(scriptPath) | grep -v '^#' | tr -d '\"' | tr -d ' '"
+        let command = "grep '=' \(scriptPath) | grep -v '^#' | tr -d '\"' | tr -d ' '"
         executeShellCommand(command) { output in
             output.forEach { line in
                 let components = line.split(separator: "=").map { String($0) }
                 if components.count == 2 {
                     switch components[0] {
-                    case "backup_hour": self.backupHour = components[1]
-                    case "backup_minute": self.backupMinute = components[1]
-                    case "range_start": self.rangeStart = components[1]
-                    case "range_end": self.rangeEnd = components[1]
-                    case "frequency_check": self.frequency = TimeInterval(components[1]) ?? 3600
+                    case "scheduledBackupTime":
+                        let timeComponents = components[1].split(separator: ":").map { String($0) }
+                        if timeComponents.count == 2 {
+                            self.backupHour = timeComponents[0]
+                            self.backupMinute = timeComponents[1]
+                        }
+                    case "rangeStart":
+                        self.rangeStart = components[1]
+                    case "rangeEnd":
+                        self.rangeEnd = components[1]
+                    case "frequencyCheck":
+                        self.frequency = TimeInterval(components[1]) ?? 3600
                     default: break
                     }
                 }
@@ -63,19 +70,31 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         let currentTimeString = formatter.string(from: Date())
         let currentDate = DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .none)
         
+        print("Checking backup schedule... Current time: \(currentTimeString), Current date: \(currentDate)")
+        
         guard let currentTime = formatter.date(from: currentTimeString),
               let rangeStart = formatter.date(from: self.rangeStart),
               let rangeEnd = formatter.date(from: self.rangeEnd),
-              let backupTime = formatter.date(from: "\(self.backupHour):\(self.backupMinute)") else { return }
+              let backupTime = formatter.date(from: "\(self.backupHour):\(self.backupMinute)") else {
+            print("There was an error parsing the date or time.")
+            return
+        }
 
         let logFilePath = "/Volumes/SFA-All/User Data/\(NSUserName())/dBackup.log"
         var didRunBackupToday = false
-        if let logContent = try? String(contentsOfFile: logFilePath, encoding: .utf8) {
+        if FileManager.default.fileExists(atPath: logFilePath),
+           let logContent = try? String(contentsOfFile: logFilePath, encoding: .utf8) {
             didRunBackupToday = logContent.contains(currentDate)
+            print("Backup log found. Did run backup today? \(didRunBackupToday)")
+        } else {
+            print("Backup log file not found or inaccessible.")
+            notifyUser(title: "Backup Error", informativeText: "The network drive is not accessible. Ensure you are connected to the network and try again.")
+            return
         }
 
         if !didRunBackupToday && currentTime >= rangeStart && currentTime <= rangeEnd {
-            if currentTime >= backupTime {  // Check if past the scheduled backup time.
+            if currentTime >= backupTime {
+                print("Conditions met for starting backup.")
                 performBackup()
             } else {
                 print("Not yet time for scheduled backup.")
@@ -86,6 +105,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             print("Current time is outside the backup window.")
         }
     }
+
+
 
     private func performBackup() {
         guard let scriptPath = Bundle.main.path(forResource: "sync_files", ofType: "sh") else {
@@ -131,4 +152,21 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         print("User interacted with notification: \(response.notification.request.identifier)")
         completionHandler()  // Always call this when finished handling the interaction to let the system know you're done.
     }
+
+    // Add to your AppDelegate class
+    func notifyUser(title: String, informativeText: String) {
+        let notificationCenter = UNUserNotificationCenter.current()
+        let notificationContent = UNMutableNotificationContent()
+        notificationContent.title = title
+        notificationContent.body = informativeText
+        notificationContent.sound = UNNotificationSound.default
+
+        let request = UNNotificationRequest(identifier: UUID().uuidString, content: notificationContent, trigger: nil)
+        notificationCenter.add(request) { (error) in
+            if let error = error {
+                print("Error posting user notification: \(error.localizedDescription)")
+            }
+        }
+    }
+
 }

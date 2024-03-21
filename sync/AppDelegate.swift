@@ -63,48 +63,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         backupTimer = Timer.scheduledTimer(timeInterval: frequency, target: self, selector: #selector(checkBackupSchedule), userInfo: nil, repeats: true)
         checkBackupSchedule()  // Also perform an immediate check.
     }
-
-//    @objc private func checkBackupSchedule() {
-//        let formatter = DateFormatter()
-//        formatter.dateFormat = "HH:mm"
-//        let currentTimeString = formatter.string(from: Date())
-//        let currentDate = DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .none)
-//        
-//        print("Checking backup schedule... Current time: \(currentTimeString), Current date: \(currentDate)")
-//        
-//        guard let currentTime = formatter.date(from: currentTimeString),
-//              let rangeStart = formatter.date(from: self.rangeStart),
-//              let rangeEnd = formatter.date(from: self.rangeEnd),
-//              let backupTime = formatter.date(from: "\(self.backupHour):\(self.backupMinute)") else {
-//            print("There was an error parsing the date or time.")
-//            return
-//        }
-//
-//        let logFilePath = "/Volumes/SFA-All/User Data/\(NSUserName())/dBackup.log"
-//        var didRunBackupToday = false
-//        if FileManager.default.fileExists(atPath: logFilePath),
-//           let logContent = try? String(contentsOfFile: logFilePath, encoding: .utf8) {
-//            didRunBackupToday = logContent.contains(currentDate)
-//            print("Backup log found. Did run backup today? \(didRunBackupToday)")
-//        } else {
-//            print("Backup log file not found or inaccessible.")
-//            notifyUser(title: "Backup Error", informativeText: "The network drive is not accessible. Ensure you are connected to the network and try again.")
-//            return
-//        }
-//
-//        if !didRunBackupToday && currentTime >= rangeStart && currentTime <= rangeEnd {
-//            if currentTime >= backupTime {
-//                print("Conditions met for starting backup.")
-//                performBackup()
-//            } else {
-//                print("Not yet time for scheduled backup.")
-//            }
-//        } else if didRunBackupToday {
-//            print("Backup already completed for today.")
-//        } else {
-//            print("Current time is outside the backup window.")
-//        }
-//    }
     
     @objc private func checkBackupSchedule() {
         // Configure the time formatter
@@ -159,17 +117,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             print("Current time is outside the backup window.")
         }
     }
-
-
-//    private func performBackup() {
-//        guard let scriptPath = Bundle.main.path(forResource: "sync_files", ofType: "sh") else {
-//            print("Failed to locate sync_files.sh for backup")
-//            return
-//        }
-//        executeShellCommand("/bin/bash \(scriptPath)") { output in
-//            print("Backup process completed: \(output.joined(separator: "\n"))")
-//        }
-//    }
 
     private func performBackup() {
         NotificationCenter.default.post(name: Notification.Name.backupDidStart, object: nil)
@@ -243,5 +190,4 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             }
         }
     }
-
 }

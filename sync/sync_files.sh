@@ -3,7 +3,7 @@
 # Backup scheduling parameters
 scheduledBackupTime="09:30"
 rangeStart="07:00"
-rangeEnd="19:00"
+rangeEnd="21:00"
 frequencyCheck="320" # How often the app should check if an rsync happened that day in seconds (3600 seconds = 1 hour)
 
 # Define source directories

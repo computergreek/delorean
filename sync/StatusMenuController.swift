@@ -31,14 +31,31 @@ class StatusMenuController: NSObject {
 //        NotificationCenter.default.addObserver(self, selector: #selector(backupDidFinish), name: .backupDidFinish, object: nil)
 //    }
     
+//    override func awakeFromNib() {
+//        super.awakeFromNib()
+//        setupMenuIcon()
+//        setupInitialMenuState()
+//        NotificationCenter.default.addObserver(self, selector: #selector(backupDidStart), name: .backupDidStart, object: nil)
+//        NotificationCenter.default.addObserver(self, selector: #selector(backupDidFinish), name: .backupDidFinish, object: nil)
+//        NotificationCenter.default.addObserver(self, selector: #selector(startBackupFromNotification(_:)), name: Notification.Name("StartBackup"), object: nil)
+//    }
+    
     override func awakeFromNib() {
         super.awakeFromNib()
         setupMenuIcon()
         setupInitialMenuState()
+        
+        // Remove observers before adding to avoid duplicates
+        NotificationCenter.default.removeObserver(self, name: .backupDidStart, object: nil)
+        NotificationCenter.default.removeObserver(self, name: .backupDidFinish, object: nil)
+        NotificationCenter.default.removeObserver(self, name: Notification.Name("StartBackup"), object: nil)
+
+        // Add observers
         NotificationCenter.default.addObserver(self, selector: #selector(backupDidStart), name: .backupDidStart, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(backupDidFinish), name: .backupDidFinish, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(startBackupFromNotification(_:)), name: Notification.Name("StartBackup"), object: nil)
     }
+
 
     @objc func startBackupFromNotification(_ notification: Notification) {
         guard !isRunning else {

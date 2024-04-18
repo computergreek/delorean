@@ -58,8 +58,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         }
     }
 
+//    private func startBackupTimer() {
+//        backupTimer?.invalidate()  // Stop any existing timer.
+//        backupTimer = Timer.scheduledTimer(timeInterval: frequency, target: self, selector: #selector(checkBackupSchedule), userInfo: nil, repeats: true)
+//        checkBackupSchedule()  // Also perform an immediate check.
+//    }
+    
     private func startBackupTimer() {
-        backupTimer?.invalidate()  // Stop any existing timer.
+        // Invalidate the existing timer if it exists
+        backupTimer?.invalidate()
+
+        // Setup the timer again
         backupTimer = Timer.scheduledTimer(timeInterval: frequency, target: self, selector: #selector(checkBackupSchedule), userInfo: nil, repeats: true)
         checkBackupSchedule()  // Also perform an immediate check.
     }

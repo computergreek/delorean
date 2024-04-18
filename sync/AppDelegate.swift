@@ -118,27 +118,39 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         }
     }
 
+//    private func performBackup() {
+//        NotificationCenter.default.post(name: Notification.Name.backupDidStart, object: nil)
+//        DispatchQueue.global(qos: .background).async {
+//            // Ensure the backup script exists before executing
+//            guard let scriptPath = Bundle.main.path(forResource: "sync_files", ofType: "sh") else {
+//                DispatchQueue.main.async {
+//                    print("Failed to locate sync_files.sh for backup")
+//                    self.notifyUser(title: "Backup Error", informativeText: "Failed to locate backup script.")
+//                }
+//                return
+//            }
+//            
+//            self.executeShellCommand("/bin/bash \(scriptPath)") { output in
+//                DispatchQueue.main.async {
+//                    print("Backup process completed: \(output.joined(separator: "\n"))")
+//                    self.notifyUser(title: "Backup Complete", informativeText: "The backup process has completed successfully.")
+//                    NotificationCenter.default.post(name: Notification.Name.backupDidFinish, object: nil)
+//                }
+//            }
+//        }
+//    }
+
     private func performBackup() {
-        NotificationCenter.default.post(name: Notification.Name.backupDidStart, object: nil)
-        DispatchQueue.global(qos: .background).async {
-            // Ensure the backup script exists before executing
-            guard let scriptPath = Bundle.main.path(forResource: "sync_files", ofType: "sh") else {
-                DispatchQueue.main.async {
-                    print("Failed to locate sync_files.sh for backup")
-                    self.notifyUser(title: "Backup Error", informativeText: "Failed to locate backup script.")
-                }
-                return
+        guard let scriptPath = Bundle.main.path(forResource: "sync_files", ofType: "sh") else {
+            DispatchQueue.main.async {
+                self.notifyUser(title: "Backup Error", informativeText: "Failed to locate backup script.")
             }
-            
-            self.executeShellCommand("/bin/bash \(scriptPath)") { output in
-                DispatchQueue.main.async {
-                    print("Backup process completed: \(output.joined(separator: "\n"))")
-                    self.notifyUser(title: "Backup Complete", informativeText: "The backup process has completed successfully.")
-                    NotificationCenter.default.post(name: Notification.Name.backupDidFinish, object: nil)
-                }
-            }
+            return
         }
+
+        NotificationCenter.default.post(name: Notification.Name("StartBackup"), object: nil, userInfo: ["scriptPath": scriptPath])
     }
+
 
     // MARK: - Helper Methods
     private func executeShellCommand(_ command: String, completion: @escaping ([String]) -> Void) {

@@ -57,12 +57,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             self.startBackupTimer()
         }
     }
-
-//    private func startBackupTimer() {
-//        backupTimer?.invalidate()  // Stop any existing timer.
-//        backupTimer = Timer.scheduledTimer(timeInterval: frequency, target: self, selector: #selector(checkBackupSchedule), userInfo: nil, repeats: true)
-//        checkBackupSchedule()  // Also perform an immediate check.
-//    }
     
     private func startBackupTimer() {
         // Invalidate the existing timer if it exists
@@ -116,7 +110,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         if !didRunBackupToday && currentTime >= rangeStart && currentTime <= rangeEnd {
             if currentTime >= backupTime {
                 print("Conditions met for starting backup.")
-                performBackup()
+                performBackup() // This should initiate the backup using the existing performBackup method
             } else {
                 print("Not yet time for scheduled backup.")
             }
@@ -126,6 +120,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             print("Current time is outside the backup window.")
         }
     }
+
 
 //    private func performBackup() {
 //        NotificationCenter.default.post(name: Notification.Name.backupDidStart, object: nil)

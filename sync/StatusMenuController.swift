@@ -22,24 +22,6 @@ class StatusMenuController: NSObject {
     var backupTask: Process?
 
     // MARK: - Awake and Menu Setup
-    // awakeFromNib is called after the object has been loaded from the xib file.
-//    override func awakeFromNib() {
-//        super.awakeFromNib()
-//        setupMenuIcon()
-//        setupInitialMenuState()
-//        NotificationCenter.default.addObserver(self, selector: #selector(backupDidStart), name: .backupDidStart, object: nil)
-//        NotificationCenter.default.addObserver(self, selector: #selector(backupDidFinish), name: .backupDidFinish, object: nil)
-//    }
-    
-//    override func awakeFromNib() {
-//        super.awakeFromNib()
-//        setupMenuIcon()
-//        setupInitialMenuState()
-//        NotificationCenter.default.addObserver(self, selector: #selector(backupDidStart), name: .backupDidStart, object: nil)
-//        NotificationCenter.default.addObserver(self, selector: #selector(backupDidFinish), name: .backupDidFinish, object: nil)
-//        NotificationCenter.default.addObserver(self, selector: #selector(startBackupFromNotification(_:)), name: Notification.Name("StartBackup"), object: nil)
-//    }
-    
     override func awakeFromNib() {
         super.awakeFromNib()
         setupMenuIcon()
@@ -55,8 +37,7 @@ class StatusMenuController: NSObject {
         NotificationCenter.default.addObserver(self, selector: #selector(backupDidFinish), name: .backupDidFinish, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(startBackupFromNotification(_:)), name: Notification.Name("StartBackup"), object: nil)
     }
-
-
+    
     @objc func startBackupFromNotification(_ notification: Notification) {
         guard !isRunning else {
             notifyUser(title: "Process is still running", informativeText: "A backup process is already in progress.")
@@ -93,6 +74,7 @@ class StatusMenuController: NSObject {
             }
         }
     }
+
     
     @objc func backupDidStart() {
         updateUIForBackupStart()

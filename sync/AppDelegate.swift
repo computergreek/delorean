@@ -144,16 +144,35 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 //        }
 //    }
 
+//    private func performBackup() {
+//        guard let scriptPath = Bundle.main.path(forResource: "sync_files", ofType: "sh") else {
+//            DispatchQueue.main.async {
+//                self.notifyUser(title: "Backup Error", informativeText: "Failed to locate backup script.")
+//            }
+//            return
+//        }
+//
+//        NotificationCenter.default.post(name: Notification.Name("StartBackup"), object: nil, userInfo: ["scriptPath": scriptPath])
+//    }
+    
     private func performBackup() {
+        // Ensure the backup script path can be located
         guard let scriptPath = Bundle.main.path(forResource: "sync_files", ofType: "sh") else {
             DispatchQueue.main.async {
                 self.notifyUser(title: "Backup Error", informativeText: "Failed to locate backup script.")
             }
             return
         }
+        // Check if the StatusMenuController indicates a backup is already running
+        if StatusMenuController.shared.isRunning {
+            print("Backup process attempted to start, but one is already in progress.")
+            return
+        }
 
+        // Post a notification to start the backup only if no backup is in progress
         NotificationCenter.default.post(name: Notification.Name("StartBackup"), object: nil, userInfo: ["scriptPath": scriptPath])
     }
+
 
 
     // MARK: - Helper Methods

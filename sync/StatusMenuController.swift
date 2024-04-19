@@ -22,6 +22,8 @@ class StatusMenuController: NSObject {
     var allowBackupCheck: Bool = true
     // The Process instance that will run the backup script.
     var backupTask: Process?
+    // Shared instance for global access (singleton pattern)
+    static let shared = StatusMenuController()
 
     // MARK: - Awake and Menu Setup
     override func awakeFromNib() {

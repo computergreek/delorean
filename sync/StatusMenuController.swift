@@ -18,6 +18,8 @@ class StatusMenuController: NSObject {
     let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     // A Boolean property to track whether a backup is currently in progress.
     var isRunning: Bool = false
+    // track whether a new backup check can be performed
+    var allowBackupCheck: Bool = true
     // The Process instance that will run the backup script.
     var backupTask: Process?
 
@@ -54,13 +56,35 @@ class StatusMenuController: NSObject {
             backupTask?.arguments = [scriptPath]
             
             backupTask?.terminationHandler = { [weak self] process in
+//                DispatchQueue.main.async {
+//                    guard let weakSelf = self else { return }
+//                    weakSelf.isRunning = false
+//                    weakSelf.updateUIForBackupEnd()
+//                    let success = process.terminationStatus == 0
+//                    weakSelf.notifyUser(title: success ? "Sync Completed" : "Sync Failed", informativeText: success ? "Your files have been successfully backed up." : "There was an issue with the backup process.")
+//                    NotificationCenter.default.post(name: Notification.Name.backupDidFinish, object: nil)
+//                }
                 DispatchQueue.main.async {
                     guard let weakSelf = self else { return }
-                    weakSelf.isRunning = false
-                    weakSelf.updateUIForBackupEnd()
+                    
                     let success = process.terminationStatus == 0
-                    weakSelf.notifyUser(title: success ? "Sync Completed" : "Sync Failed", informativeText: success ? "Your files have been successfully backed up." : "There was an issue with the backup process.")
-                    NotificationCenter.default.post(name: Notification.Name.backupDidFinish, object: nil)
+                    if success {
+                        weakSelf.notifyUser(title: "Sync Completed", informativeText: "Your files have been successfully backed up.")
+                    } else {
+                        weakSelf.notifyUser(title: "Sync Failed", informativeText: "There was an issue with the backup process.")
+                    }
+                    
+                    // Ensure the isRunning flag is only set to false here to avoid overlapping checks
+                    if weakSelf.isRunning {
+                        weakSelf.isRunning = false
+                        NotificationCenter.default.post(name: Notification.Name.backupDidFinish, object: nil)
+                        weakSelf.updateUIForBackupEnd()
+                        
+                        // Introduce a delay before allowing the next backup check to prevent immediate re-triggering
+                        DispatchQueue.global().asyncAfter(deadline: .now() + 5.0) { // 5-second delay
+                            weakSelf.allowBackupCheck = true
+                        }
+                    }
                 }
             }
 

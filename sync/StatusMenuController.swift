@@ -252,20 +252,28 @@ class StatusMenuController: NSObject {
     
     func updateUIForBackupStart() {
         DispatchQueue.main.async {
+            // Set the backup running flag and update the UI accordingly
+            self.isRunning = true
+            // Additional UI updates for backup start
             self.startBackupItem.isHidden = true
             self.abortBackupItem.isHidden = false
             self.abortBackupItem.isEnabled = true
             self.backupInProgressItem.isHidden = false
-            // Additional UI updates for backup start
+            // Post a notification that backup has started
+            NotificationCenter.default.post(name: .backupDidStart, object: nil)
         }
     }
 
     func updateUIForBackupEnd() {
         DispatchQueue.main.async {
+            // Set the backup running flag to false and update the UI accordingly
+            // Additional UI updates for backup end
+            self.isRunning = false
             self.startBackupItem.isHidden = false
             self.abortBackupItem.isHidden = true
             self.backupInProgressItem.isHidden = true
-            // Additional UI updates for backup end
+            // Post a notification that backup has finished
+            NotificationCenter.default.post(name: .backupDidFinish, object: nil)
         }
     }
 }

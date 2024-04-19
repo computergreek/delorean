@@ -3,6 +3,7 @@ import UserNotifications
 
 @NSApplicationMain
 class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
+    var isBackupRunning = false
     var backupTimer: Timer?
     var backupHour = ""  // Default values removed since they'll be loaded from config
     var backupMinute = ""
@@ -12,11 +13,23 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     
     // MARK: - App Lifecycle
     func applicationDidFinishLaunching(_ aNotification: Notification) {
+        // Set up listeners for backup status
+        NotificationCenter.default.addObserver(self, selector: #selector(backupDidStart), name: .backupDidStart, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(backupDidFinish), name: .backupDidFinish, object: nil)
+        
         UNUserNotificationCenter.current().delegate = self
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
         }
         loadConfig()
         startBackupTimer()
+    }
+    
+    @objc func backupDidStart(notification: Notification) {
+        isBackupRunning = true
+    }
+    
+    @objc func backupDidFinish(notification: Notification) {
+        isBackupRunning = false
     }
 
     func applicationWillTerminate(_ aNotification: Notification) {
@@ -156,6 +169,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 //    }
     
     private func performBackup() {
+        guard !isBackupRunning else {
+            print("Backup is already in progress.")
+            return
+        }
         // Ensure the backup script path can be located
         guard let scriptPath = Bundle.main.path(forResource: "sync_files", ofType: "sh") else {
             DispatchQueue.main.async {

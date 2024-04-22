@@ -9,7 +9,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     var backupMinute = ""
     var rangeStart = ""
     var rangeEnd = ""
-    var frequency: TimeInterval = 60  // This could remain as a default, or be set in the script
+    var frequency: TimeInterval = 30  // This could remain as a default, or be set in the script
     
     // MARK: - App Lifecycle
     func applicationDidFinishLaunching(_ aNotification: Notification) {
@@ -31,12 +31,23 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         isBackupRunning = false
     }
 
+//    func applicationWillTerminate(_ aNotification: Notification) {
+//        backupTimer?.invalidate()
+//    }
+    
     func applicationWillTerminate(_ aNotification: Notification) {
         backupTimer?.invalidate()
+        
+        // Terminate the backup process if it's running
+        if let task = StatusMenuController.shared.backupTask {
+            task.terminate()
+        }
     }
+
 
     // MARK: - Backup Configuration and Schedule
     private func loadConfig() {
+//    print("I'm in loadConfig now")
         // Assuming 'sync_files.sh' is within the app bundle
         guard let scriptPath = Bundle.main.path(forResource: "sync_files", ofType: "sh") else {
             print("Failed to locate sync_files.sh")
@@ -44,9 +55,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         }
 
         let command = "grep '=' \(scriptPath) | grep -v '^#' | tr -d '\"' | tr -d ' '"
+        //print (command)
         executeShellCommand(command) { output in
             output.forEach { line in
                 let components = line.split(separator: "=").map { String($0) }
+                //print (line)
                 if components.count == 2 {
                     switch components[0] {
                     case "scheduledBackupTime":
@@ -55,12 +68,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
                             self.backupHour = timeComponents[0]
                             self.backupMinute = timeComponents[1]
                         }
+                        //print("ScheduledBackupTime Found")
                     case "rangeStart":
                         self.rangeStart = components[1]
+                        //print("rangeStart Found")
                     case "rangeEnd":
                         self.rangeEnd = components[1]
+                        //print("rangeEnd Found")
                     case "frequencyCheck":
                         self.frequency = TimeInterval(components[1]) ?? 3600
+                        //print("frequencyCheck Found")
+                        print("Frequency set to " + String(format: "%f",  self.frequency))
                     default: break
                     }
                 }

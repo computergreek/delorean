@@ -7,6 +7,11 @@ extension Notification.Name {
 }
 
 class StatusMenuController: NSObject {
+    let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d, h:mm a"
+        return formatter
+    }()
     // MARK: - Outlets
     // Connect these outlets to the corresponding UI elements in MainMenu.xib
     @IBOutlet weak var statusMenu: NSMenu!
@@ -42,15 +47,80 @@ class StatusMenuController: NSObject {
         NotificationCenter.default.addObserver(self, selector: #selector(startBackupFromNotification(_:)), name: Notification.Name("StartBackup"), object: nil)
     }
     
+//    @objc func startBackupFromNotification(_ notification: Notification) {
+//        guard !isRunning else {
+//            notifyUser(title: "Process is still running", informativeText: "A backup process is already in progress.")
+//            return
+//        }
+//        
+//        // Check if a backup task is already running
+//        if let task = backupTask, task.isRunning {
+//            notifyUser(title: "Backup in Progress", informativeText: "A backup is already in progress. Please wait for it to complete.")
+//            return
+//        }
+//        
+//        if let scriptPath = notification.userInfo?["scriptPath"] as? String {
+//            isRunning = true
+//            updateUIForBackupStart()
+//
+//            // Prepare the backup task
+//            backupTask = Process()
+//            backupTask?.launchPath = "/bin/bash"
+//            backupTask?.arguments = [scriptPath]
+//            
+//            backupTask?.terminationHandler = { [weak self] process in
+//                DispatchQueue.main.async {
+//                    guard let weakSelf = self else { return }
+//                    
+//                    let success = process.terminationStatus == 0
+//                    if success {
+//                        weakSelf.notifyUser(title: "Sync Completed", informativeText: "Your files have been successfully backed up.")
+//                    } else {
+//                        weakSelf.notifyUser(title: "Sync Failed", informativeText: "There was an issue with the backup process.")
+//                    }
+//                    
+//                    // Ensure the isRunning flag is only set to false here to avoid overlapping checks
+//                    if weakSelf.isRunning {
+//                        weakSelf.isRunning = false
+//                        NotificationCenter.default.post(name: Notification.Name.backupDidFinish, object: nil)
+//                        weakSelf.updateUIForBackupEnd()
+//                        
+//                        // Introduce a delay before allowing the next backup check to prevent immediate re-triggering
+//                        DispatchQueue.global().asyncAfter(deadline: .now() + 5.0) { // 5-second delay
+//                            weakSelf.allowBackupCheck = true
+//                        }
+//                    }
+//                }
+//            }
+//
+//            // Start the backup process
+//            do {
+//                try backupTask?.run()
+//            } catch {
+//                notifyUser(title: "Error", informativeText: "Failed to start the backup process.")
+//                isRunning = false
+//                updateUIForBackupEnd()
+//            }
+//        }
+//    }
+
     @objc func startBackupFromNotification(_ notification: Notification) {
         guard !isRunning else {
             notifyUser(title: "Process is still running", informativeText: "A backup process is already in progress.")
             return
         }
         
+        // Check if a backup task is already running
+        if let task = backupTask, task.isRunning {
+            notifyUser(title: "Backup in Progress", informativeText: "A backup is already in progress. Please wait for it to complete.")
+            return
+        }
+        
         if let scriptPath = notification.userInfo?["scriptPath"] as? String {
             isRunning = true
-            updateUIForBackupStart()
+            statusItem.button?.title = "⚙️ Syncing..."
+            statusItem.button?.isEnabled = false
+            statusItem.button?.performClick(nil)
 
             // Prepare the backup task
             backupTask = Process()
@@ -58,35 +128,22 @@ class StatusMenuController: NSObject {
             backupTask?.arguments = [scriptPath]
             
             backupTask?.terminationHandler = { [weak self] process in
-//                DispatchQueue.main.async {
-//                    guard let weakSelf = self else { return }
-//                    weakSelf.isRunning = false
-//                    weakSelf.updateUIForBackupEnd()
-//                    let success = process.terminationStatus == 0
-//                    weakSelf.notifyUser(title: success ? "Sync Completed" : "Sync Failed", informativeText: success ? "Your files have been successfully backed up." : "There was an issue with the backup process.")
-//                    NotificationCenter.default.post(name: Notification.Name.backupDidFinish, object: nil)
-//                }
                 DispatchQueue.main.async {
-                    guard let weakSelf = self else { return }
+                    guard let self = self else { return }
                     
                     let success = process.terminationStatus == 0
                     if success {
-                        weakSelf.notifyUser(title: "Sync Completed", informativeText: "Your files have been successfully backed up.")
+                        self.notifyUser(title: "Sync Completed", informativeText: "Your files have been successfully backed up.")
                     } else {
-                        weakSelf.notifyUser(title: "Sync Failed", informativeText: "There was an issue with the backup process.")
+                        self.notifyUser(title: "Sync Failed", informativeText: "There was an issue with the backup process.")
                     }
                     
-                    // Ensure the isRunning flag is only set to false here to avoid overlapping checks
-                    if weakSelf.isRunning {
-                        weakSelf.isRunning = false
-                        NotificationCenter.default.post(name: Notification.Name.backupDidFinish, object: nil)
-                        weakSelf.updateUIForBackupEnd()
-                        
-                        // Introduce a delay before allowing the next backup check to prevent immediate re-triggering
-                        DispatchQueue.global().asyncAfter(deadline: .now() + 5.0) { // 5-second delay
-                            weakSelf.allowBackupCheck = true
-                        }
-                    }
+                    self.isRunning = false
+                    NotificationCenter.default.post(name: Notification.Name.backupDidFinish, object: nil)
+                    
+                    self.statusItem.button?.title = "◎ Last Sync: \(self.dateFormatter.string(from: Date()))"
+                    self.statusItem.button?.isEnabled = true
+                    self.statusItem.button?.window?.performClose(nil)
                 }
             }
 
@@ -96,7 +153,10 @@ class StatusMenuController: NSObject {
             } catch {
                 notifyUser(title: "Error", informativeText: "Failed to start the backup process.")
                 isRunning = false
-                updateUIForBackupEnd()
+                
+                statusItem.button?.title = "◎ Last Sync: \(dateFormatter.string(from: Date()))"
+                statusItem.button?.isEnabled = true
+                statusItem.button?.window?.performClose(nil)
             }
         }
     }
@@ -238,7 +298,18 @@ class StatusMenuController: NSObject {
         NSApplication.shared.terminate(self)
     }
 
-    // Displays a dialog if a backup is running and the user tries to quit.
+//    // Displays a dialog if a backup is running and the user tries to quit.
+//    func closeDialog() -> Bool {
+//        let alert = NSAlert()
+//        alert.messageText = "Sync is running"
+//        alert.informativeText = "It appears a process is still running."
+//        alert.alertStyle = .warning
+//        alert.addButton(withTitle: "Close anyway")
+//        alert.addButton(withTitle: "Cancel")
+//        // Show the dialog and return true if the user confirms they want to close.
+//        return alert.runModal() == .alertFirstButtonReturn
+//    }
+    
     func closeDialog() -> Bool {
         let alert = NSAlert()
         alert.messageText = "Sync is running"
@@ -246,8 +317,16 @@ class StatusMenuController: NSObject {
         alert.alertStyle = .warning
         alert.addButton(withTitle: "Close anyway")
         alert.addButton(withTitle: "Cancel")
-        // Show the dialog and return true if the user confirms they want to close.
-        return alert.runModal() == .alertFirstButtonReturn
+        
+        let result = alert.runModal()
+        if result == .alertFirstButtonReturn {
+            // If the user chooses to close anyway, terminate the backup process
+            if let task = backupTask {
+                task.terminate()
+            }
+            return true
+        }
+        return false
     }
     
     func updateUIForBackupStart() {

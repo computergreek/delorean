@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Backup scheduling parameters
-scheduledBackupTime="11:00"
+scheduledBackupTime="9:30"
 rangeStart="07:00"
 rangeEnd="21:00"
 frequencyCheck="300" # How often the app should check if an rsync happened that day in seconds (3600 seconds = 1 hour)

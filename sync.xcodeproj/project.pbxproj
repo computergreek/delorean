@@ -57,9 +57,9 @@
 			children = (
 				DDE4A3C8226BC235009B7305 /* sync_files.sh */,
 				DDB0577921DD70A7002BB72A /* AppDelegate.swift */,
-				DDB0577B21DD70AA002BB72A /* Assets.xcassets */,
-				DDB0577D21DD70AA002BB72A /* MainMenu.xib */,
 				DDB0578721DD7DCC002BB72A /* StatusMenuController.swift */,
+				DDB0577D21DD70AA002BB72A /* MainMenu.xib */,
+				DDB0577B21DD70AA002BB72A /* Assets.xcassets */,
 				DDB0578021DD70AA002BB72A /* Info.plist */,
 				DDB0578121DD70AA002BB72A /* sync.entitlements */,
 			);

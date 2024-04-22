@@ -21,7 +21,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
         }
         loadConfig()
-        startBackupTimer()
     }
     
     @objc func backupDidStart(notification: Notification) {

@@ -118,9 +118,10 @@ class StatusMenuController: NSObject {
         
         if let scriptPath = notification.userInfo?["scriptPath"] as? String {
             isRunning = true
-            statusItem.button?.title = "⚙️ Syncing..."
-            statusItem.button?.isEnabled = false
-            statusItem.button?.performClick(nil)
+            updateUIForBackupStart() // re-added this
+//            statusItem.button?.title = "⚙️ Syncing..."
+//            statusItem.button?.isEnabled = false
+//            statusItem.button?.performClick(nil)
 
             // Prepare the backup task
             backupTask = Process()
@@ -141,9 +142,9 @@ class StatusMenuController: NSObject {
                     self.isRunning = false
                     NotificationCenter.default.post(name: Notification.Name.backupDidFinish, object: nil)
                     
-                    self.statusItem.button?.title = "◎ Last Sync: \(self.dateFormatter.string(from: Date()))"
-                    self.statusItem.button?.isEnabled = true
-                    self.statusItem.button?.window?.performClose(nil)
+//                    self.statusItem.button?.title = "◎ Last Sync: \(self.dateFormatter.string(from: Date()))"
+//                    self.statusItem.button?.isEnabled = true
+//                    self.statusItem.button?.window?.performClose(nil)
                 }
             }
 
@@ -153,10 +154,11 @@ class StatusMenuController: NSObject {
             } catch {
                 notifyUser(title: "Error", informativeText: "Failed to start the backup process.")
                 isRunning = false
+                updateUIForBackupEnd() // added from last save because it got deleted
                 
-                statusItem.button?.title = "◎ Last Sync: \(dateFormatter.string(from: Date()))"
-                statusItem.button?.isEnabled = true
-                statusItem.button?.window?.performClose(nil)
+//                statusItem.button?.title = "◎ Last Sync: \(dateFormatter.string(from: Date()))"
+//                statusItem.button?.isEnabled = true
+//                statusItem.button?.window?.performClose(nil)
             }
         }
     }

@@ -22,7 +22,6 @@ class StatusMenuController: NSObject {
     
     let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     var isRunning: Bool = false
-    var allowBackupCheck: Bool = true
     var backupTask: Process?
     static let shared = StatusMenuController()
     
@@ -31,10 +30,6 @@ class StatusMenuController: NSObject {
         super.awakeFromNib()
         setupMenuIcon()
         setupInitialMenuState()
-        
-        NotificationCenter.default.removeObserver(self, name: .backupDidStart, object: nil)
-        NotificationCenter.default.removeObserver(self, name: .backupDidFinish, object: nil)
-        NotificationCenter.default.removeObserver(self, name: Notification.Name("StartBackup"), object: nil)
         
         NotificationCenter.default.addObserver(self, selector: #selector(backupDidStart), name: .backupDidStart, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(backupDidFinish), name: .backupDidFinish, object: nil)
@@ -54,7 +49,7 @@ class StatusMenuController: NSObject {
         
         if let scriptPath = notification.userInfo?["scriptPath"] as? String {
             isRunning = true
-            updateUIForBackupStart()
+            NotificationCenter.default.post(name: .backupDidStart, object: nil)  // Notify that backup started
             backupTask = Process()
             backupTask?.launchPath = "/bin/bash"
             backupTask?.arguments = [scriptPath]
@@ -71,7 +66,7 @@ class StatusMenuController: NSObject {
                     }
                     
                     self.isRunning = false
-                    self.updateUIForBackupEnd()  // Ensure UI is updated properly
+                    NotificationCenter.default.post(name: .backupDidFinish, object: nil)  // Notify that backup finished
                 }
             }
             
@@ -80,7 +75,7 @@ class StatusMenuController: NSObject {
             } catch {
                 notifyUser(title: "Error", informativeText: "Failed to start the backup process.")
                 isRunning = false
-                updateUIForBackupEnd()
+                NotificationCenter.default.post(name: .backupDidFinish, object: nil)  // Notify that backup finished
             }
         }
     }
@@ -117,40 +112,7 @@ class StatusMenuController: NSObject {
             return
         }
         
-        isRunning = true
-        startBackupItem.isHidden = true
-        abortBackupItem.isHidden = false
-        abortBackupItem.isEnabled = true
-        backupInProgressItem.isHidden = false
-        backupInProgressItem.isEnabled = false
-        lastBackupItem.isHidden = true  // Hide last backup item during backup
-        
-        notifyUser(title: "Backup Starting", informativeText: "Your backup has started and will continue in the background.")
-        
-        backupTask = Process()
-        backupTask?.launchPath = "/bin/bash"
-        backupTask?.arguments = [Bundle.main.path(forResource: "sync_files", ofType: "sh")!]
-        
-        backupTask?.terminationHandler = { [weak self] process in
-            DispatchQueue.main.async {
-                guard let weakSelf = self else { return }
-                weakSelf.isRunning = false
-                weakSelf.updateUIForBackupEnd()
-                
-                let success = process.terminationStatus == 0
-                weakSelf.updateBackupLog(success: success)
-                weakSelf.notifyUser(title: success ? "Sync Completed" : "Sync Failed",
-                                    informativeText: success ? "Your files have been successfully backed up." : "There was an issue with the backup process.")
-            }
-        }
-        
-        do {
-            try backupTask?.run()
-        } catch {
-            notifyUser(title: "Error", informativeText: "Failed to start the backup process.")
-            isRunning = false
-            updateUIForBackupEnd()
-        }
+        NotificationCenter.default.post(name: Notification.Name("StartBackup"), object: nil, userInfo: ["scriptPath": Bundle.main.path(forResource: "sync_files", ofType: "sh")!])
     }
     
     @IBAction func abortBackupClicked(_ sender: NSMenuItem) {
@@ -162,7 +124,7 @@ class StatusMenuController: NSObject {
         task.terminate()
         
         isRunning = false
-        updateUIForBackupEnd()
+        NotificationCenter.default.post(name: .backupDidFinish, object: nil)  // Notify that backup finished
         notifyUser(title: "Backup Aborted", informativeText: "The backup process has been cancelled.")
     }
     
@@ -213,7 +175,6 @@ class StatusMenuController: NSObject {
             self.abortBackupItem.isEnabled = true
             self.backupInProgressItem.isHidden = false
             self.lastBackupItem.isHidden = true  // Hide last backup item during backup
-            NotificationCenter.default.post(name: .backupDidStart, object: nil)
         }
     }
 
@@ -221,7 +182,6 @@ class StatusMenuController: NSObject {
         DispatchQueue.main.async {
             self.isRunning = false
             self.setupInitialMenuState()
-            NotificationCenter.default.post(name: .backupDidFinish, object: nil)
         }
     }
 
@@ -265,4 +225,3 @@ class StatusMenuController: NSObject {
         lastBackupItem.isEnabled = false  // Make last backup item non-interactive
     }
 }
-

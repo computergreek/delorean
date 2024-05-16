@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # Backup scheduling parameters
-scheduledBackupTime="16:40"
+scheduledBackupTime="07:49"
 rangeStart="07:00"
 rangeEnd="21:00"
 # How often the app should check if an rsync happened that day in seconds (3600 seconds = 1 hour)
-frequencyCheck="300"
+frequencyCheck="30"
 
 # Define source directories
 #SOURCES=("$HOME/Pictures" "$HOME/Downloads" "$HOME/Desktop" "$HOME/Documents")

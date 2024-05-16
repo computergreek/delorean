@@ -12,105 +12,41 @@ class StatusMenuController: NSObject {
         formatter.dateFormat = "MMM d, h:mm a"
         return formatter
     }()
+    
     // MARK: - Outlets
-    // Connect these outlets to the corresponding UI elements in MainMenu.xib
     @IBOutlet weak var statusMenu: NSMenu!
     @IBOutlet weak var startBackupItem: NSMenuItem!
     @IBOutlet weak var abortBackupItem: NSMenuItem!
     @IBOutlet weak var backupInProgressItem: NSMenuItem!
-
-    // This status item will appear in the menu bar and is the entry point for user interactions.
+    @IBOutlet weak var lastBackupItem: NSMenuItem!
+    
     let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-    // A Boolean property to track whether a backup is currently in progress.
     var isRunning: Bool = false
-    // track whether a new backup check can be performed
     var allowBackupCheck: Bool = true
-    // The Process instance that will run the backup script.
     var backupTask: Process?
-    // Shared instance for global access (singleton pattern)
     static let shared = StatusMenuController()
-
+    
     // MARK: - Awake and Menu Setup
     override func awakeFromNib() {
         super.awakeFromNib()
         setupMenuIcon()
         setupInitialMenuState()
         
-        // Remove observers before adding to avoid duplicates
         NotificationCenter.default.removeObserver(self, name: .backupDidStart, object: nil)
         NotificationCenter.default.removeObserver(self, name: .backupDidFinish, object: nil)
         NotificationCenter.default.removeObserver(self, name: Notification.Name("StartBackup"), object: nil)
-
-        // Add observers
+        
         NotificationCenter.default.addObserver(self, selector: #selector(backupDidStart), name: .backupDidStart, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(backupDidFinish), name: .backupDidFinish, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(startBackupFromNotification(_:)), name: Notification.Name("StartBackup"), object: nil)
     }
     
-//    @objc func startBackupFromNotification(_ notification: Notification) {
-//        guard !isRunning else {
-//            notifyUser(title: "Process is still running", informativeText: "A backup process is already in progress.")
-//            return
-//        }
-//        
-//        // Check if a backup task is already running
-//        if let task = backupTask, task.isRunning {
-//            notifyUser(title: "Backup in Progress", informativeText: "A backup is already in progress. Please wait for it to complete.")
-//            return
-//        }
-//        
-//        if let scriptPath = notification.userInfo?["scriptPath"] as? String {
-//            isRunning = true
-//            updateUIForBackupStart()
-//
-//            // Prepare the backup task
-//            backupTask = Process()
-//            backupTask?.launchPath = "/bin/bash"
-//            backupTask?.arguments = [scriptPath]
-//            
-//            backupTask?.terminationHandler = { [weak self] process in
-//                DispatchQueue.main.async {
-//                    guard let weakSelf = self else { return }
-//                    
-//                    let success = process.terminationStatus == 0
-//                    if success {
-//                        weakSelf.notifyUser(title: "Sync Completed", informativeText: "Your files have been successfully backed up.")
-//                    } else {
-//                        weakSelf.notifyUser(title: "Sync Failed", informativeText: "There was an issue with the backup process.")
-//                    }
-//                    
-//                    // Ensure the isRunning flag is only set to false here to avoid overlapping checks
-//                    if weakSelf.isRunning {
-//                        weakSelf.isRunning = false
-//                        NotificationCenter.default.post(name: Notification.Name.backupDidFinish, object: nil)
-//                        weakSelf.updateUIForBackupEnd()
-//                        
-//                        // Introduce a delay before allowing the next backup check to prevent immediate re-triggering
-//                        DispatchQueue.global().asyncAfter(deadline: .now() + 5.0) { // 5-second delay
-//                            weakSelf.allowBackupCheck = true
-//                        }
-//                    }
-//                }
-//            }
-//
-//            // Start the backup process
-//            do {
-//                try backupTask?.run()
-//            } catch {
-//                notifyUser(title: "Error", informativeText: "Failed to start the backup process.")
-//                isRunning = false
-//                updateUIForBackupEnd()
-//            }
-//        }
-//    }
-
     @objc func startBackupFromNotification(_ notification: Notification) {
         guard !isRunning else {
             notifyUser(title: "Process is still running", informativeText: "A backup process is already in progress.")
             return
         }
         
-        // Check if a backup task is already running
         if let task = backupTask, task.isRunning {
             notifyUser(title: "Backup in Progress", informativeText: "A backup is already in progress. Please wait for it to complete.")
             return
@@ -118,12 +54,7 @@ class StatusMenuController: NSObject {
         
         if let scriptPath = notification.userInfo?["scriptPath"] as? String {
             isRunning = true
-            updateUIForBackupStart() // re-added this
-//            statusItem.button?.title = "⚙️ Syncing..."
-//            statusItem.button?.isEnabled = false
-//            statusItem.button?.performClick(nil)
-
-            // Prepare the backup task
+            updateUIForBackupStart()
             backupTask = Process()
             backupTask?.launchPath = "/bin/bash"
             backupTask?.arguments = [scriptPath]
@@ -140,177 +71,121 @@ class StatusMenuController: NSObject {
                     }
                     
                     self.isRunning = false
-                    NotificationCenter.default.post(name: Notification.Name.backupDidFinish, object: nil)
-                    
-//                    self.statusItem.button?.title = "◎ Last Sync: \(self.dateFormatter.string(from: Date()))"
-//                    self.statusItem.button?.isEnabled = true
-//                    self.statusItem.button?.window?.performClose(nil)
+                    self.updateUIForBackupEnd()  // Ensure UI is updated properly
                 }
             }
-
-            // Start the backup process
+            
             do {
                 try backupTask?.run()
             } catch {
                 notifyUser(title: "Error", informativeText: "Failed to start the backup process.")
                 isRunning = false
-                updateUIForBackupEnd() // added from last save because it got deleted
-                
-//                statusItem.button?.title = "◎ Last Sync: \(dateFormatter.string(from: Date()))"
-//                statusItem.button?.isEnabled = true
-//                statusItem.button?.window?.performClose(nil)
+                updateUIForBackupEnd()
             }
         }
     }
-
     
     @objc func backupDidStart() {
         updateUIForBackupStart()
     }
-
+    
     @objc func backupDidFinish() {
         updateUIForBackupEnd()
     }
-    
 
-    // Sets up the menu bar icon for the app.
     func setupMenuIcon() {
-        // Use the system-provided refresh icon for the status item.
         let icon = NSImage(named: NSImage.refreshFreestandingTemplateName)
-        icon?.isTemplate = true // Allows the icon to adapt to light and dark menu bars.
+        icon?.isTemplate = true
         statusItem.button?.image = icon
         statusItem.menu = statusMenu
     }
-
-    // Sets the initial state of the menu items when the app launches.
+    
     func setupInitialMenuState() {
         startBackupItem.isHidden = false
         abortBackupItem.isHidden = true
         backupInProgressItem.isHidden = true
         backupInProgressItem.isEnabled = false
+        updateLastBackupTime()
+        lastBackupItem.isEnabled = false  // Make last backup item non-interactive
+        lastBackupItem.isHidden = isRunning  // Hide last backup item if backup is in progress
     }
-
+    
     // MARK: - Actions
-    // Called when the 'Start Backup' menu item is clicked.
     @IBAction func startBackupClicked(_ sender: NSMenuItem) {
-        // Prevent starting a backup if one is already running.
         guard !isRunning else {
             notifyUser(title: "Process is still running", informativeText: "A backup process is already in progress.")
             return
         }
-
-        // Set the state to indicate that a backup is in progress.
+        
         isRunning = true
-        // Update menu items for backup in progress
         startBackupItem.isHidden = true
         abortBackupItem.isHidden = false
         abortBackupItem.isEnabled = true
         backupInProgressItem.isHidden = false
         backupInProgressItem.isEnabled = false
+        lastBackupItem.isHidden = true  // Hide last backup item during backup
         
-        // Send a notification that the backup is starting.
         notifyUser(title: "Backup Starting", informativeText: "Your backup has started and will continue in the background.")
         
-        // Prepare the backup task.
         backupTask = Process()
-        backupTask?.launchPath = "/bin/bash" // The path to the bash executable.
-        backupTask?.arguments = [Bundle.main.path(forResource: "sync_files", ofType: "sh")!] // The path to the backup script.
-
-        // Handle script completion.
+        backupTask?.launchPath = "/bin/bash"
+        backupTask?.arguments = [Bundle.main.path(forResource: "sync_files", ofType: "sh")!]
+        
         backupTask?.terminationHandler = { [weak self] process in
-            // Dispatch to the main thread since UI updates must be on the main thread.
             DispatchQueue.main.async {
                 guard let weakSelf = self else { return }
-                weakSelf.isRunning = false // Update the state to reflect that the backup is no longer running.
-                // Ensure that 'Start Backup' is visible and enabled once the backup completes.
-                weakSelf.startBackupItem.isHidden = false
-                weakSelf.startBackupItem.isEnabled = true
-                // Ensure that 'Abort Backup' and 'Backup in progress...' are hidden and 'Abort Backup' is disabled.
-                weakSelf.abortBackupItem.isHidden = true
-                weakSelf.abortBackupItem.isEnabled = false  // This is crucial
-                weakSelf.backupInProgressItem.isHidden = true
-
-                // Notify the user of the result based on the termination status of the script.
+                weakSelf.isRunning = false
+                weakSelf.updateUIForBackupEnd()
+                
                 let success = process.terminationStatus == 0
+                weakSelf.updateBackupLog(success: success)
                 weakSelf.notifyUser(title: success ? "Sync Completed" : "Sync Failed",
                                     informativeText: success ? "Your files have been successfully backed up." : "There was an issue with the backup process.")
             }
         }
-
-        // Start the backup process.
+        
         do {
             try backupTask?.run()
         } catch {
-            // Handle any errors that occur when attempting to start the backup process.
             notifyUser(title: "Error", informativeText: "Failed to start the backup process.")
-            isRunning = false // Update the state to reflect that the backup is not running.
-            startBackupItem.isEnabled = true // Re-enable the start backup item.
-            abortBackupItem.isEnabled = false // Disable the abort backup item.
+            isRunning = false
+            updateUIForBackupEnd()
         }
     }
-
-    // Called when the 'Abort Backup' menu item is clicked.
+    
     @IBAction func abortBackupClicked(_ sender: NSMenuItem) {
-        // Check if there is a backup process running
         guard let task = backupTask, isRunning else {
-            // If no task is running or if isRunning is false, no action is needed
             notifyUser(title: "Abort Ignored", informativeText: "No backup is currently in progress.")
-            return // If there is no task running, just return.
+            return
         }
-
-        // Terminate the backup process.
+        
         task.terminate()
-
-        // Update the UI to reflect that the backup process has been aborted.
+        
         isRunning = false
         updateUIForBackupEnd()
-        // Reset menu items back to initial state
-        startBackupItem.isHidden = false
-        abortBackupItem.isHidden = true
-        backupInProgressItem.isHidden = true
-        backupInProgressItem.isEnabled = false // It remains disabled
         notifyUser(title: "Backup Aborted", informativeText: "The backup process has been cancelled.")
     }
-
-    // Sends a notification to the user using the UserNotifications framework.
+    
     func notifyUser(title: String, informativeText: String) {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = informativeText
-        content.sound = UNNotificationSound.default // Use the default notification sound.
-
-        // Create a unique identifier for the notification request.
+        content.sound = UNNotificationSound.default
+        
         let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
-        // Schedule the notification.
         UNUserNotificationCenter.current().add(request) { error in
             if let error = error {
-                // If there is an error scheduling the notification, log the error.
                 print("Error posting notification: \(error.localizedDescription)")
             }
         }
     }
-
-    // Called when the user selects to quit the app from the menu.
+    
     @IBAction func quitClicked(sender: NSMenuItem) {
-        // If a backup is running and the user wants to quit, show a confirmation dialog.
         if isRunning && !closeDialog() {
-            return // If the user chooses not to quit, return.
+            return
         }
-        // Terminate the application.
         NSApplication.shared.terminate(self)
     }
-
-//    // Displays a dialog if a backup is running and the user tries to quit.
-//    func closeDialog() -> Bool {
-//        let alert = NSAlert()
-//        alert.messageText = "Sync is running"
-//        alert.informativeText = "It appears a process is still running."
-//        alert.alertStyle = .warning
-//        alert.addButton(withTitle: "Close anyway")
-//        alert.addButton(withTitle: "Cancel")
-//        // Show the dialog and return true if the user confirms they want to close.
-//        return alert.runModal() == .alertFirstButtonReturn
-//    }
     
     func closeDialog() -> Bool {
         let alert = NSAlert()
@@ -322,7 +197,6 @@ class StatusMenuController: NSObject {
         
         let result = alert.runModal()
         if result == .alertFirstButtonReturn {
-            // If the user chooses to close anyway, terminate the backup process
             if let task = backupTask {
                 task.terminate()
             }
@@ -330,31 +204,64 @@ class StatusMenuController: NSObject {
         }
         return false
     }
-    
+
     func updateUIForBackupStart() {
         DispatchQueue.main.async {
-            // Set the backup running flag and update the UI accordingly
             self.isRunning = true
-            // Additional UI updates for backup start
             self.startBackupItem.isHidden = true
             self.abortBackupItem.isHidden = false
             self.abortBackupItem.isEnabled = true
             self.backupInProgressItem.isHidden = false
-            // Post a notification that backup has started
+            self.lastBackupItem.isHidden = true  // Hide last backup item during backup
             NotificationCenter.default.post(name: .backupDidStart, object: nil)
         }
     }
 
     func updateUIForBackupEnd() {
         DispatchQueue.main.async {
-            // Set the backup running flag to false and update the UI accordingly
-            // Additional UI updates for backup end
             self.isRunning = false
-            self.startBackupItem.isHidden = false
-            self.abortBackupItem.isHidden = true
-            self.backupInProgressItem.isHidden = true
-            // Post a notification that backup has finished
+            self.setupInitialMenuState()
             NotificationCenter.default.post(name: .backupDidFinish, object: nil)
         }
+    }
+
+    func updateBackupLog(success: Bool) {
+        let logPath = "/Volumes/SFA-All/User Data/\(NSUserName())/backup_log.txt"
+        let logEntry = "\(dateFormatter.string(from: Date()))\n"  // Removed status part
+        
+        do {
+            if FileManager.default.fileExists(atPath: logPath) {
+                let fileHandle = try FileHandle(forWritingTo: URL(fileURLWithPath: logPath))
+                fileHandle.seekToEndOfFile()
+                fileHandle.write(logEntry.data(using: .utf8)!)
+                fileHandle.closeFile()
+            } else {
+                try logEntry.write(toFile: logPath, atomically: true, encoding: .utf8)
+            }
+        } catch {
+            print("Failed to write to log file: \(error)")
+        }
+    }
+    
+    func updateLastBackupTime() {
+        guard let lastBackupItem = lastBackupItem else {
+            print("lastBackupItem is not connected")
+            return
+        }
+        
+        let logPath = "/Volumes/SFA-All/User Data/\(NSUserName())/backup_log.txt"
+        
+        do {
+            let logContent = try String(contentsOfFile: logPath, encoding: .utf8)
+            if let lastEntry = logContent.components(separatedBy: "\n").filter({ !$0.isEmpty }).last {
+                lastBackupItem.title = "Last Backup: \(lastEntry)"
+            } else {
+                lastBackupItem.title = "Last Backup: N/A"
+            }
+        } catch {
+            lastBackupItem.title = "Last Backup: N/A"
+            print("Failed to read log file: \(error)")
+        }
+        lastBackupItem.isEnabled = false  // Make last backup item non-interactive
     }
 }

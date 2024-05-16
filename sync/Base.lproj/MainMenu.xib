@@ -18,6 +18,7 @@
             <connections>
                 <outlet property="abortBackupItem" destination="7na-V6-pnz" id="EMM-zj-Bfv"/>
                 <outlet property="backupInProgressItem" destination="z2v-DJ-uIr" id="Tbw-Nb-JIt"/>
+                <outlet property="lastBackupItem" destination="oeR-bE-MNk" id="Hdf-ty-ltc"/>
                 <outlet property="startBackupItem" destination="hS0-Yd-pPC" id="hwb-hd-r3A"/>
                 <outlet property="statusMenu" destination="pZM-fr-sx3" id="tuj-FO-eOX"/>
             </connections>
@@ -29,6 +30,9 @@
                     <connections>
                         <action selector="startBackupClicked:" target="zNT-n7-GYd" id="XyZ-Im-yiG"/>
                     </connections>
+                </menuItem>
+                <menuItem title="Last Backup" id="oeR-bE-MNk">
+                    <modifierMask key="keyEquivalentModifierMask"/>
                 </menuItem>
                 <menuItem isSeparatorItem="YES" id="KVA-5V-Ku8"/>
                 <menuItem title="Backup in progress..." id="z2v-DJ-uIr">
@@ -48,7 +52,7 @@
                     </connections>
                 </menuItem>
             </items>
-            <point key="canvasLocation" x="-1113" y="-21"/>
+            <point key="canvasLocation" x="-2971" y="-822"/>
         </menu>
     </objects>
 </document>

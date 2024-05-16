@@ -163,7 +163,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 //                }
 //                return
 //            }
-//            
+//
 //            self.executeShellCommand("/bin/bash \(scriptPath)") { output in
 //                DispatchQueue.main.async {
 //                    print("Backup process completed: \(output.joined(separator: "\n"))")

@@ -227,7 +227,7 @@ class StatusMenuController: NSObject {
 
     func updateBackupLog(success: Bool) {
         let logPath = "/Volumes/SFA-All/User Data/\(NSUserName())/backup_log.txt"
-        let logEntry = "\(dateFormatter.string(from: Date()))\n"  // Removed status part
+        let logEntry = "\(dateFormatter.string(from: Date()))\n"
         
         do {
             if FileManager.default.fileExists(atPath: logPath) {
@@ -265,3 +265,4 @@ class StatusMenuController: NSObject {
         lastBackupItem.isEnabled = false  // Make last backup item non-interactive
     }
 }
+

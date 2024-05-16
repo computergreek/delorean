@@ -61,8 +61,10 @@ class StatusMenuController: NSObject {
                     let success = process.terminationStatus == 0
                     if success {
                         self.notifyUser(title: "Sync Completed", informativeText: "Your files have been successfully backed up.")
+                        self.updateBackupLog(success: true)
                     } else {
                         self.notifyUser(title: "Sync Failed", informativeText: "There was an issue with the backup process.")
+                        self.updateBackupLog(success: false)
                     }
                     
                     self.isRunning = false
@@ -74,6 +76,7 @@ class StatusMenuController: NSObject {
                 try backupTask?.run()
             } catch {
                 notifyUser(title: "Error", informativeText: "Failed to start the backup process.")
+                self.updateBackupLog(success: false)
                 isRunning = false
                 NotificationCenter.default.post(name: .backupDidFinish, object: nil)  // Notify that backup finished
             }
@@ -86,6 +89,7 @@ class StatusMenuController: NSObject {
     
     @objc func backupDidFinish() {
         updateUIForBackupEnd()
+        updateLastBackupTime()  // Ensure the last backup time is updated
     }
 
     func setupMenuIcon() {

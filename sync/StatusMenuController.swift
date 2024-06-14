@@ -38,11 +38,13 @@ class StatusMenuController: NSObject {
     
     @objc func startBackupFromNotification(_ notification: Notification) {
         guard !isRunning else {
+            print("DEBUG: Backup is already in progress.")
             notifyUser(title: "Process is still running", informativeText: "A backup process is already in progress.")
             return
         }
         
         if let task = backupTask, task.isRunning {
+            print("DEBUG: Backup is already in progress (task.isRunning).")
             notifyUser(title: "Backup in Progress", informativeText: "A backup is already in progress. Please wait for it to complete.")
             return
         }
@@ -59,12 +61,12 @@ class StatusMenuController: NSObject {
                     guard let self = self else { return }
                     
                     let success = process.terminationStatus == 0
+                    print("DEBUG: Backup task terminated with success: \(success)")
+                    
                     if success {
                         self.notifyUser(title: "Sync Completed", informativeText: "Your files have been successfully backed up.")
-                        self.updateBackupLog(success: true)
                     } else {
                         self.notifyUser(title: "Sync Failed", informativeText: "There was an issue with the backup process.")
-                        self.updateBackupLog(success: false)
                     }
                     
                     self.isRunning = false
@@ -73,21 +75,24 @@ class StatusMenuController: NSObject {
             }
             
             do {
+                print("DEBUG: Starting backup task.")
                 try backupTask?.run()
             } catch {
+                print("DEBUG: Failed to start the backup task.")
                 notifyUser(title: "Error", informativeText: "Failed to start the backup process.")
-                self.updateBackupLog(success: false)
-                isRunning = false
+                self.isRunning = false
                 NotificationCenter.default.post(name: .backupDidFinish, object: nil)  // Notify that backup finished
             }
         }
     }
     
     @objc func backupDidStart() {
+        print("DEBUG: Backup did start.")
         updateUIForBackupStart()
     }
     
     @objc func backupDidFinish() {
+        print("DEBUG: Backup did finish.")
         updateUIForBackupEnd()
         updateLastBackupTime()  // Ensure the last backup time is updated
     }
@@ -112,6 +117,7 @@ class StatusMenuController: NSObject {
     // MARK: - Actions
     @IBAction func startBackupClicked(_ sender: NSMenuItem) {
         guard !isRunning else {
+            print("DEBUG: Start backup clicked but process is still running.")
             notifyUser(title: "Process is still running", informativeText: "A backup process is already in progress.")
             return
         }
@@ -121,12 +127,12 @@ class StatusMenuController: NSObject {
     
     @IBAction func abortBackupClicked(_ sender: NSMenuItem) {
         guard let task = backupTask, isRunning else {
+            print("DEBUG: Abort backup clicked but no backup is currently in progress.")
             notifyUser(title: "Abort Ignored", informativeText: "No backup is currently in progress.")
             return
         }
         
         task.terminate()
-        
         isRunning = false
         NotificationCenter.default.post(name: .backupDidFinish, object: nil)  // Notify that backup finished
         notifyUser(title: "Backup Aborted", informativeText: "The backup process has been cancelled.")
@@ -141,7 +147,7 @@ class StatusMenuController: NSObject {
         let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request) { error in
             if let error = error {
-                print("Error posting notification: \(error.localizedDescription)")
+                print("DEBUG: Error posting notification: \(error.localizedDescription)")
             }
         }
     }
@@ -173,6 +179,7 @@ class StatusMenuController: NSObject {
 
     func updateUIForBackupStart() {
         DispatchQueue.main.async {
+            print("DEBUG: Updating UI for backup start.")
             self.isRunning = true
             self.startBackupItem.isHidden = true
             self.abortBackupItem.isHidden = false
@@ -184,36 +191,45 @@ class StatusMenuController: NSObject {
 
     func updateUIForBackupEnd() {
         DispatchQueue.main.async {
+            print("DEBUG: Updating UI for backup end.")
             self.isRunning = false
             self.setupInitialMenuState()
         }
     }
 
-    func updateBackupLog(success: Bool) {
-        let logPath = "/Volumes/SFA-All/User Data/\(NSUserName())/backup_log.txt"
-        let logEntry = "\(dateFormatter.string(from: Date()))\n"
-        
-        do {
-            if FileManager.default.fileExists(atPath: logPath) {
-                let fileHandle = try FileHandle(forWritingTo: URL(fileURLWithPath: logPath))
-                fileHandle.seekToEndOfFile()
-                fileHandle.write(logEntry.data(using: .utf8)!)
-                fileHandle.closeFile()
-            } else {
-                try logEntry.write(toFile: logPath, atomically: true, encoding: .utf8)
-            }
-        } catch {
-            print("Failed to write to log file: \(error)")
-        }
-    }
+//    func updateBackupLog(success: Bool) {
+//        print("DEBUG: Updating backup log with success: \(success)")
+//        let logPath = "\(NSHomeDirectory())/delorean.log"
+//        let dateFormatter = DateFormatter()
+//        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+//        let logEntry = "\(dateFormatter.string(from: Date())) - \(success ? "Backup completed successfully" : "Backup Failed: User aborted backup")\n"
+//        
+//        do {
+//            if FileManager.default.fileExists(atPath: logPath) {
+//                let fileHandle = try FileHandle(forWritingTo: URL(fileURLWithPath: logPath))
+//                fileHandle.seekToEndOfFile()
+//                fileHandle.write(logEntry.data(using: .utf8)!)
+//                fileHandle.closeFile()
+//            } else {
+//                try logEntry.write(toFile: logPath, atomically: true, encoding: .utf8)
+//            }
+//        } catch {
+//            print("DEBUG: Failed to write to log file: \(error)")
+//        }
+//    }
     
     func updateLastBackupTime() {
         guard let lastBackupItem = lastBackupItem else {
-            print("lastBackupItem is not connected")
+            print("DEBUG: lastBackupItem is not connected")
             return
         }
         
-        let logPath = "/Volumes/SFA-All/User Data/\(NSUserName())/backup_log.txt"
+        let logPath = "\(NSHomeDirectory())/delorean.log"
+
+        if !FileManager.default.fileExists(atPath: logPath) {
+            // Create the log file if it doesn't exist
+            FileManager.default.createFile(atPath: logPath, contents: nil, attributes: nil)
+        }
         
         do {
             let logContent = try String(contentsOfFile: logPath, encoding: .utf8)
@@ -224,7 +240,7 @@ class StatusMenuController: NSObject {
             }
         } catch {
             lastBackupItem.title = "Last Backup: N/A"
-            print("Failed to read log file: \(error)")
+            print("DEBUG: Failed to read log file: \(error)")
         }
         lastBackupItem.isEnabled = false  // Make last backup item non-interactive
     }

@@ -75,8 +75,26 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         backupTimer = Timer.scheduledTimer(timeInterval: frequency, target: self, selector: #selector(checkBackupSchedule), userInfo: nil, repeats: true)
         checkBackupSchedule()
     }
+    
+    func readMaxDayAttemptNotification() -> Int {
+        let scriptPath = Bundle.main.path(forResource: "sync_files", ofType: "sh") ?? ""
+        do {
+            let scriptContent = try String(contentsOfFile: scriptPath)
+            let regex = try NSRegularExpression(pattern: "maxDayAttemptNotification=(\\d+)", options: [])
+            if let match = regex.firstMatch(in: scriptContent, options: [], range: NSRange(location: 0, length: scriptContent.utf16.count)) {
+                if let range = Range(match.range(at: 1), in: scriptContent) {
+                    let value = scriptContent[range]
+                    return Int(value) ?? 6 // Default to 6 if conversion fails
+                }
+            }
+        } catch {
+            print("DEBUG: Failed to read sync_files.sh: \(error)")
+        }
+        return 6 // Default value
+    }
 
     @objc private func checkBackupSchedule() {
+        let maxDayAttemptNotification = readMaxDayAttemptNotification()
         guard !isBackupRunning else {
             print("DEBUG: Backup is already in progress.")
             return
@@ -117,45 +135,47 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         }
 
         if !logContent.isEmpty {
-            let successfulBackupsToday = logContent
-                .components(separatedBy: "\n")
-                .filter { $0.contains("Backup completed successfully") && $0.contains(currentDate) }
+            let logEntries = logContent.components(separatedBy: "\n").filter { !$0.isEmpty }
+            let lastLogEntry = logEntries.last ?? ""
+            let successfulBackupsToday = logEntries.filter { $0.contains("Backup completed successfully") && $0.contains(currentDate) }
             didRunBackupToday = !successfulBackupsToday.isEmpty
             print("DEBUG: Backup log found. Did run backup today? \(didRunBackupToday)")
+
+            // Ensure the network drive is accessible before scheduling a backup
+            let destPath = "/Volumes/SFA-All/User Data/\(NSUserName())"
+            let fileManager = FileManager.default
+
+            print("DEBUG: Checking if network drive is accessible.")
+            if fileManager.fileExists(atPath: destPath) {
+                print("DEBUG: Network drive is accessible.")
+                if !didRunBackupToday && currentTime >= rangeStart && currentTime <= rangeEnd {
+                    if currentTime >= backupTime {
+                        print("DEBUG: Conditions met for starting backup.")
+                        isBackupRunning = true
+                        NotificationCenter.default.post(name: Notification.Name("StartBackup"), object: nil, userInfo: ["scriptPath": Bundle.main.path(forResource: "sync_files", ofType: "sh")!])
+                    } else {
+                        print("DEBUG: Not yet time for scheduled backup.")
+                    }
+                } else if didRunBackupToday {
+                    print("DEBUG: Backup already completed for today.")
+                } else {
+                    print("DEBUG: Current time is outside the backup window.")
+                }
+            } else {
+                print("DEBUG: Network drive is not accessible.")
+                let recentFailures = logEntries.filter { $0.contains("Backup Failed: Network drive inaccessible") }
+                let failureCount = recentFailures.count
+                print("DEBUG: Failure count: \(failureCount)")
+                if !didRunBackupToday && lastLogEntry.contains("Backup Failed: Network drive inaccessible") && failureCount >= maxDayAttemptNotification {
+                    print("DEBUG: Failure count threshold met, sending notification.")
+                    DispatchQueue.main.async {
+                        self.notifyUser(title: "Backup Error", informativeText: "The network drive is not accessible. Ensure you are connected to the network and try again.")
+                    }
+                }
+            }
         } else {
             print("DEBUG: Backup log file not found or inaccessible.")
             return
-        }
-
-        // Ensure the network drive is accessible before scheduling a backup
-        let destPath = "/Volumes/SFA-All/User Data/\(NSUserName())"
-        let fileManager = FileManager.default
-
-        print("DEBUG: Checking if network drive is accessible.")
-        if fileManager.fileExists(atPath: destPath) {
-            print("DEBUG: Network drive is accessible.")
-            if !didRunBackupToday && currentTime >= rangeStart && currentTime <= rangeEnd {
-                if currentTime >= backupTime {
-                    print("DEBUG: Conditions met for starting backup.")
-                    performBackup()
-                } else {
-                    print("DEBUG: Not yet time for scheduled backup.")
-                }
-            } else if didRunBackupToday {
-                print("DEBUG: Backup already completed for today.")
-            } else {
-                print("DEBUG: Current time is outside the backup window.")
-            }
-        } else {
-            print("DEBUG: Network drive is not accessible.")
-            let failureCount = logContent.components(separatedBy: "\n").filter { $0.contains("Backup Failed: Network drive inaccessible") }.count
-            print("DEBUG: Failure count: \(failureCount)")
-            if failureCount >= 6 {
-                print("DEBUG: Failure count threshold met, sending notification.")
-                DispatchQueue.main.async {
-                    self.notifyUser(title: "Backup Error", informativeText: "The network drive is not accessible. Ensure you are connected to the network and try again.")
-                }
-            }
         }
     }
 

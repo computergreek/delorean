@@ -36,44 +36,89 @@ class StatusMenuController: NSObject {
         NotificationCenter.default.addObserver(self, selector: #selector(startBackupFromNotification(_:)), name: Notification.Name("StartBackup"), object: nil)
     }
     
+    func readMaxDayAttemptNotification() -> Int {
+        let scriptPath = Bundle.main.path(forResource: "sync_files", ofType: "sh") ?? ""
+        do {
+            let scriptContent = try String(contentsOfFile: scriptPath)
+            let regex = try NSRegularExpression(pattern: "maxDayAttemptNotification=(\\d+)", options: [])
+            if let match = regex.firstMatch(in: scriptContent, options: [], range: NSRange(location: 0, length: scriptContent.utf16.count)) {
+                if let range = Range(match.range(at: 1), in: scriptContent) {
+                    let value = scriptContent[range]
+                    return Int(value) ?? 6 // Default to 6 if conversion fails
+                }
+            }
+        } catch {
+            print("DEBUG: Failed to read sync_files.sh: \(error)")
+        }
+        return 6 // Default value
+    }
+    
     @objc func startBackupFromNotification(_ notification: Notification) {
+        let maxDayAttemptNotification = readMaxDayAttemptNotification()
         guard !isRunning else {
             print("DEBUG: Backup is already in progress.")
             notifyUser(title: "Process is still running", informativeText: "A backup process is already in progress.")
             return
         }
-        
-        if let task = backupTask, task.isRunning {
-            print("DEBUG: Backup is already in progress (task.isRunning).")
-            notifyUser(title: "Backup in Progress", informativeText: "A backup is already in progress. Please wait for it to complete.")
-            return
+
+        let logFilePath = "\(NSHomeDirectory())/delorean.log"
+        var logContent = ""
+
+        if !FileManager.default.fileExists(atPath: logFilePath) {
+            // Create the log file if it doesn't exist
+            FileManager.default.createFile(atPath: logFilePath, contents: nil, attributes: nil)
         }
-        
+
+        do {
+            logContent = try String(contentsOfFile: logFilePath, encoding: .utf8)
+        } catch {
+            print("DEBUG: Failed to read log file: \(error)")
+        }
+
+        if !logContent.isEmpty {
+            let logEntries = logContent.components(separatedBy: "\n").filter { !$0.isEmpty }
+            let lastLogEntry = logEntries.last ?? ""
+            let recentFailures = logEntries.filter { $0.contains("Backup Failed: Network drive inaccessible") }
+            let failureCount = recentFailures.count
+            print("DEBUG: Failure count: \(failureCount)")
+
+            if lastLogEntry.contains("Backup Failed: Network drive inaccessible") && failureCount >= maxDayAttemptNotification {
+                print("DEBUG: Failure count threshold met, sending notification.")
+                notifyUser(title: "Backup Error", informativeText: "The network drive is not accessible. Ensure you are connected to the network and try again.")
+                return
+            }
+        }
+
         if let scriptPath = notification.userInfo?["scriptPath"] as? String {
             isRunning = true
+            print("DEBUG: isRunning before starting backup: \(isRunning)")
+            
             NotificationCenter.default.post(name: .backupDidStart, object: nil)  // Notify that backup started
             backupTask = Process()
             backupTask?.launchPath = "/bin/bash"
             backupTask?.arguments = [scriptPath]
-            
+
             backupTask?.terminationHandler = { [weak self] process in
                 DispatchQueue.main.async {
                     guard let self = self else { return }
-                    
+
                     let success = process.terminationStatus == 0
                     print("DEBUG: Backup task terminated with success: \(success)")
-                    
+                    print("DEBUG: isRunning before resetting: \(self.isRunning)")
+
                     if success {
                         self.notifyUser(title: "Sync Completed", informativeText: "Your files have been successfully backed up.")
                     } else {
                         self.notifyUser(title: "Sync Failed", informativeText: "There was an issue with the backup process.")
                     }
-                    
+
                     self.isRunning = false
+                    print("DEBUG: isRunning after resetting: \(self.isRunning)")
+                    
                     NotificationCenter.default.post(name: .backupDidFinish, object: nil)  // Notify that backup finished
                 }
             }
-            
+
             do {
                 print("DEBUG: Starting backup task.")
                 try backupTask?.run()
@@ -244,4 +289,5 @@ class StatusMenuController: NSObject {
         }
         lastBackupItem.isEnabled = false  // Make last backup item non-interactive
     }
+    
 }

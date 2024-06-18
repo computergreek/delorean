@@ -148,7 +148,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         }
 
         if logContent.isEmpty {
-            print("DEBUG: Backup log is empty or unreadable.")
+            print("DEBUG: Backup log is empty, initiating backup.")
+            isBackupRunning = true
+            NotificationCenter.default.post(name: Notification.Name("StartBackup"), object: nil, userInfo: ["scriptPath": Bundle.main.path(forResource: "sync_files", ofType: "sh")!])
             return
         }
 
@@ -191,6 +193,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             }
         }
     }
+
 
 
     

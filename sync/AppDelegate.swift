@@ -154,7 +154,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         }
 
         let logEntries = logContent.components(separatedBy: "\n").filter { !$0.isEmpty }
-        let lastLogEntry = logEntries.last ?? ""
+//        let lastLogEntry = logEntries.last ?? ""
         let successfulBackupsToday = logEntries.filter { $0.contains("Backup completed successfully") && $0.contains(currentDate) }
         didRunBackupToday = !successfulBackupsToday.isEmpty
         print("DEBUG: Backup log found. Did run backup today? \(didRunBackupToday)")

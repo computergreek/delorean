@@ -54,45 +54,16 @@ class StatusMenuController: NSObject {
     }
     
     @objc func startBackupFromNotification(_ notification: Notification) {
-        let maxDayAttemptNotification = readMaxDayAttemptNotification()
         guard !isRunning else {
             print("DEBUG: Backup is already in progress.")
             notifyUser(title: "Process is still running", informativeText: "A backup process is already in progress.")
             return
         }
 
-        let logFilePath = "\(NSHomeDirectory())/delorean.log"
-        var logContent = ""
-
-        if !FileManager.default.fileExists(atPath: logFilePath) {
-            // Create the log file if it doesn't exist
-            FileManager.default.createFile(atPath: logFilePath, contents: nil, attributes: nil)
-        }
-
-        do {
-            logContent = try String(contentsOfFile: logFilePath, encoding: .utf8)
-        } catch {
-            print("DEBUG: Failed to read log file: \(error)")
-        }
-
-        if !logContent.isEmpty {
-            let logEntries = logContent.components(separatedBy: "\n").filter { !$0.isEmpty }
-            let lastLogEntry = logEntries.last ?? ""
-            let recentFailures = logEntries.filter { $0.contains("Backup Failed: Network drive inaccessible") }
-            let failureCount = recentFailures.count
-            print("DEBUG: Failure count: \(failureCount)")
-
-            if lastLogEntry.contains("Backup Failed: Network drive inaccessible") && failureCount >= maxDayAttemptNotification {
-                print("DEBUG: Failure count threshold met, sending notification.")
-                notifyUser(title: "Backup Error", informativeText: "The network drive is not accessible. Ensure you are connected to the network and try again.")
-                return
-            }
-        }
-
         if let scriptPath = notification.userInfo?["scriptPath"] as? String {
             isRunning = true
             print("DEBUG: isRunning before starting backup: \(isRunning)")
-            
+
             NotificationCenter.default.post(name: .backupDidStart, object: nil)  // Notify that backup started
             backupTask = Process()
             backupTask?.launchPath = "/bin/bash"
@@ -114,7 +85,7 @@ class StatusMenuController: NSObject {
 
                     self.isRunning = false
                     print("DEBUG: isRunning after resetting: \(self.isRunning)")
-                    
+
                     NotificationCenter.default.post(name: .backupDidFinish, object: nil)  // Notify that backup finished
                 }
             }
@@ -126,6 +97,7 @@ class StatusMenuController: NSObject {
                 print("DEBUG: Failed to start the backup task.")
                 notifyUser(title: "Error", informativeText: "Failed to start the backup process.")
                 self.isRunning = false
+                print("DEBUG: isRunning after catching error: \(self.isRunning)")
                 NotificationCenter.default.post(name: .backupDidFinish, object: nil)  // Notify that backup finished
             }
         }
@@ -180,6 +152,15 @@ class StatusMenuController: NSObject {
         task.terminate()
         isRunning = false
         NotificationCenter.default.post(name: .backupDidFinish, object: nil)  // Notify that backup finished
+        
+        // Log the user-aborted backup
+        let scriptPath = Bundle.main.path(forResource: "sync_files", ofType: "sh")!
+        let process = Process()
+        process.launchPath = "/bin/bash"
+        process.arguments = [scriptPath, "user_aborted"]
+        process.launch()
+        process.waitUntilExit()
+        
         notifyUser(title: "Backup Aborted", informativeText: "The backup process has been cancelled.")
     }
     
@@ -241,27 +222,6 @@ class StatusMenuController: NSObject {
             self.setupInitialMenuState()
         }
     }
-
-//    func updateBackupLog(success: Bool) {
-//        print("DEBUG: Updating backup log with success: \(success)")
-//        let logPath = "\(NSHomeDirectory())/delorean.log"
-//        let dateFormatter = DateFormatter()
-//        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-//        let logEntry = "\(dateFormatter.string(from: Date())) - \(success ? "Backup completed successfully" : "Backup Failed: User aborted backup")\n"
-//        
-//        do {
-//            if FileManager.default.fileExists(atPath: logPath) {
-//                let fileHandle = try FileHandle(forWritingTo: URL(fileURLWithPath: logPath))
-//                fileHandle.seekToEndOfFile()
-//                fileHandle.write(logEntry.data(using: .utf8)!)
-//                fileHandle.closeFile()
-//            } else {
-//                try logEntry.write(toFile: logPath, atomically: true, encoding: .utf8)
-//            }
-//        } catch {
-//            print("DEBUG: Failed to write to log file: \(error)")
-//        }
-//    }
     
     func updateLastBackupTime() {
         guard let lastBackupItem = lastBackupItem else {

@@ -10,28 +10,28 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     var rangeStart = ""
     var rangeEnd = ""
     var frequency: TimeInterval = 30
-    
+
     // MARK: - App Lifecycle
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         NotificationCenter.default.addObserver(self, selector: #selector(backupDidStart), name: .backupDidStart, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(backupDidFinish), name: .backupDidFinish, object: nil)
-        
+
         UNUserNotificationCenter.current().delegate = self
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in }
         loadConfig()
     }
-    
+
     @objc func backupDidStart(notification: Notification) {
         isBackupRunning = true
     }
-    
+
     @objc func backupDidFinish(notification: Notification) {
         isBackupRunning = false
     }
 
     func applicationWillTerminate(_ aNotification: Notification) {
         backupTimer?.invalidate()
-        
+
         if let task = StatusMenuController.shared.backupTask {
             task.terminate()
         }
@@ -50,32 +50,32 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
                 let components = line.split(separator: "=").map { String($0) }
                 if components.count == 2 {
                     switch components[0] {
-                    case "scheduledBackupTime":
-                        let timeComponents = components[1].split(separator: ":").map { String($0) }
-                        if timeComponents.count == 2 {
-                            self.backupHour = timeComponents[0]
-                            self.backupMinute = timeComponents[1]
-                        }
-                    case "rangeStart":
-                        self.rangeStart = components[1]
-                    case "rangeEnd":
-                        self.rangeEnd = components[1]
-                    case "frequencyCheck":
-                        self.frequency = TimeInterval(components[1]) ?? 3600
-                    default: break
+                        case "scheduledBackupTime":
+                            let timeComponents = components[1].split(separator: ":").map { String($0) }
+                            if timeComponents.count == 2 {
+                                self.backupHour = timeComponents[0]
+                                self.backupMinute = timeComponents[1]
+                            }
+                        case "rangeStart":
+                            self.rangeStart = components[1]
+                        case "rangeEnd":
+                            self.rangeEnd = components[1]
+                        case "frequencyCheck":
+                            self.frequency = TimeInterval(components[1]) ?? 3600
+                        default: break
                     }
                 }
             }
             self.startBackupTimer()
         }
     }
-    
+
     private func startBackupTimer() {
         backupTimer?.invalidate()
         backupTimer = Timer.scheduledTimer(timeInterval: frequency, target: self, selector: #selector(checkBackupSchedule), userInfo: nil, repeats: true)
         checkBackupSchedule()
     }
-    
+
     func readMaxDayAttemptNotification() -> Int {
         let scriptPath = Bundle.main.path(forResource: "sync_files", ofType: "sh") ?? ""
         do {
@@ -92,6 +92,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         }
         return 6 // Default value
     }
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
 
     @objc private func checkBackupSchedule() {
         let maxDayAttemptNotification = readMaxDayAttemptNotification()
@@ -130,54 +141,66 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 
         do {
             logContent = try String(contentsOfFile: logFilePath, encoding: .utf8)
+            print("DEBUG: Successfully read log file.")
         } catch {
             print("DEBUG: Failed to read log file: \(error)")
+            logContent = ""  // Ensure logContent is initialized even if reading fails
         }
 
-        if !logContent.isEmpty {
-            let logEntries = logContent.components(separatedBy: "\n").filter { !$0.isEmpty }
-            let lastLogEntry = logEntries.last ?? ""
-            let successfulBackupsToday = logEntries.filter { $0.contains("Backup completed successfully") && $0.contains(currentDate) }
-            didRunBackupToday = !successfulBackupsToday.isEmpty
-            print("DEBUG: Backup log found. Did run backup today? \(didRunBackupToday)")
-
-            // Ensure the network drive is accessible before scheduling a backup
-            let destPath = "/Volumes/SFA-All/User Data/\(NSUserName())"
-            let fileManager = FileManager.default
-
-            print("DEBUG: Checking if network drive is accessible.")
-            if fileManager.fileExists(atPath: destPath) {
-                print("DEBUG: Network drive is accessible.")
-                if !didRunBackupToday && currentTime >= rangeStart && currentTime <= rangeEnd {
-                    if currentTime >= backupTime {
-                        print("DEBUG: Conditions met for starting backup.")
-                        isBackupRunning = true
-                        NotificationCenter.default.post(name: Notification.Name("StartBackup"), object: nil, userInfo: ["scriptPath": Bundle.main.path(forResource: "sync_files", ofType: "sh")!])
-                    } else {
-                        print("DEBUG: Not yet time for scheduled backup.")
-                    }
-                } else if didRunBackupToday {
-                    print("DEBUG: Backup already completed for today.")
-                } else {
-                    print("DEBUG: Current time is outside the backup window.")
-                }
-            } else {
-                print("DEBUG: Network drive is not accessible.")
-                let recentFailures = logEntries.filter { $0.contains("Backup Failed: Network drive inaccessible") }
-                let failureCount = recentFailures.count
-                print("DEBUG: Failure count: \(failureCount)")
-                if !didRunBackupToday && lastLogEntry.contains("Backup Failed: Network drive inaccessible") && failureCount >= maxDayAttemptNotification {
-                    print("DEBUG: Failure count threshold met, sending notification.")
-                    DispatchQueue.main.async {
-                        self.notifyUser(title: "Backup Error", informativeText: "The network drive is not accessible. Ensure you are connected to the network and try again.")
-                    }
-                }
-            }
-        } else {
-            print("DEBUG: Backup log file not found or inaccessible.")
+        if logContent.isEmpty {
+            print("DEBUG: Backup log is empty or unreadable.")
             return
         }
+
+        let logEntries = logContent.components(separatedBy: "\n").filter { !$0.isEmpty }
+        let lastLogEntry = logEntries.last ?? ""
+        let successfulBackupsToday = logEntries.filter { $0.contains("Backup completed successfully") && $0.contains(currentDate) }
+        didRunBackupToday = !successfulBackupsToday.isEmpty
+        print("DEBUG: Backup log found. Did run backup today? \(didRunBackupToday)")
+
+        // Ensure the network drive is accessible before scheduling a backup
+        let destPath = "/Volumes/SFA-All/User Data/\(NSUserName())"
+        let fileManager = FileManager.default
+
+        print("DEBUG: Checking if network drive is accessible.")
+        if fileManager.fileExists(atPath: destPath) {
+            print("DEBUG: Network drive is accessible.")
+            if !didRunBackupToday && currentTime >= rangeStart && currentTime <= rangeEnd {
+                if currentTime >= backupTime {
+                    print("DEBUG: Conditions met for starting backup.")
+                    isBackupRunning = true
+                    NotificationCenter.default.post(name: Notification.Name("StartBackup"), object: nil, userInfo: ["scriptPath": Bundle.main.path(forResource: "sync_files", ofType: "sh")!])
+                } else {
+                    print("DEBUG: Not yet time for scheduled backup.")
+                }
+            } else if didRunBackupToday {
+                print("DEBUG: Backup already completed for today.")
+            } else {
+                print("DEBUG: Current time is outside the backup window.")
+            }
+        } else {
+            print("DEBUG: Network drive is not accessible.")
+            let recentFailures = logEntries.filter { $0.contains("Backup Failed: Network drive inaccessible") }
+            let failureCount = recentFailures.count
+            print("DEBUG: Failure count: \(failureCount)")
+            if !didRunBackupToday && lastLogEntry.contains("Backup Failed: Network drive inaccessible") && failureCount >= maxDayAttemptNotification {
+                print("DEBUG: Failure count threshold met, sending notification.")
+                DispatchQueue.main.async {
+                    self.notifyUser(title: "Backup Error", informativeText: "The network drive is not accessible. Ensure you are connected to the network and try again.")
+                }
+            }
+        }
     }
+
+
+    
+    
+    
+    
+    
+    
+    
+    
 
     @objc private func performBackup() {
         guard !isBackupRunning else {
@@ -212,7 +235,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         let output = String(data: data, encoding: .utf8)?.components(separatedBy: "\n").filter { !$0.isEmpty } ?? []
-        
+
         completion(output)
     }
 

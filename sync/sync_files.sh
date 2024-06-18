@@ -23,11 +23,31 @@ count_failures() {
     grep -c 'Backup Failed: Network drive inaccessible' "$LOG_FILE"
 }
 
+# Function to log a failure
+log_failure() {
+    failureCount=$(count_failures)
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - Backup Failed: Network drive inaccessible (Failure count: $((failureCount + 1)))" >> "$LOG_FILE"
+}
+
+# Function to log a successful backup
+log_success() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - Backup completed successfully" >> "$LOG_FILE"
+}
+
+# Function to reset the failure count
+reset_failure_count() {
+    sed -i '' '/Backup Failed: Network drive inaccessible/d' "$LOG_FILE"
+}
+
 # Check if the network drive is mounted by testing if the destination directory exists and is accessible
 if [ ! -d "$DEST" ]; then
-    failureCount=$(count_failures)
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - Backup Failed: Network drive inaccessible (Failure count: $failureCount)" >> "$LOG_FILE"
+    log_failure
     exit 1  # Exit the script with an error status
+fi
+
+# Ensure the log file exists and has an initial entry
+if [ ! -f "$LOG_FILE" ]; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - Log file created" > "$LOG_FILE"
 fi
 
 # Rsync options and excludes as arrays
@@ -47,9 +67,14 @@ done
 
 # Log the overall result
 if [ "$overall_success" = true ]; then
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - Backup completed successfully" >> "$LOG_FILE"
+    log_success
+    reset_failure_count
 else
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - Backup Failed: Rsync error occurred" >> "$LOG_FILE"
+    if [ "$1" = "user_aborted" ]; then
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - Backup Failed: User aborted" >> "$LOG_FILE"
+    else
+        log_failure
+    fi
 fi
 
 # Copy log file to destination

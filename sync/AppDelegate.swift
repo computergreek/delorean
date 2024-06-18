@@ -103,7 +103,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     
     
     
-
     @objc private func checkBackupSchedule() {
         let maxDayAttemptNotification = readMaxDayAttemptNotification()
         guard !isBackupRunning else {
@@ -160,6 +159,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         didRunBackupToday = !successfulBackupsToday.isEmpty
         print("DEBUG: Backup log found. Did run backup today? \(didRunBackupToday)")
 
+        // Count failures since the last successful backup
+        let recentFailures = logEntries.reversed().prefix(while: { !$0.contains("Backup completed successfully") }).filter { $0.contains("Backup Failed: Network drive inaccessible") }
+        let failureCount = recentFailures.count
+        print("DEBUG: Failure count since last successful backup: \(failureCount)")
+
         // Ensure the network drive is accessible before scheduling a backup
         let destPath = "/Volumes/SFA-All/User Data/\(NSUserName())"
         let fileManager = FileManager.default
@@ -182,17 +186,30 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             }
         } else {
             print("DEBUG: Network drive is not accessible.")
-            let recentFailures = logEntries.filter { $0.contains("Backup Failed: Network drive inaccessible") }
-            let failureCount = recentFailures.count
-            print("DEBUG: Failure count: \(failureCount)")
-            if !didRunBackupToday && lastLogEntry.contains("Backup Failed: Network drive inaccessible") && failureCount >= maxDayAttemptNotification {
-                print("DEBUG: Failure count threshold met, sending notification.")
-                DispatchQueue.main.async {
-                    self.notifyUser(title: "Backup Error", informativeText: "The network drive is not accessible. Ensure you are connected to the network and try again.")
+            if !didRunBackupToday {
+                // Trigger the script to log a new failure entry
+                let scriptPath = Bundle.main.path(forResource: "sync_files", ofType: "sh")!
+                let process = Process()
+                process.launchPath = "/bin/bash"
+                process.arguments = [scriptPath]
+                process.launch()
+                process.waitUntilExit()
+                
+                let recentFailuresUpdated = logEntries.reversed().prefix(while: { !$0.contains("Backup completed successfully") }).filter { $0.contains("Backup Failed: Network drive inaccessible") }
+                let failureCountUpdated = recentFailuresUpdated.count
+                print("DEBUG: Updated failure count: \(failureCountUpdated)")
+
+                if failureCountUpdated >= maxDayAttemptNotification {
+                    print("DEBUG: Failure count threshold met, sending notification.")
+                    DispatchQueue.main.async {
+                        self.notifyUser(title: "Backup Error", informativeText: "The network drive is not accessible. Ensure you are connected to the network and try again.")
+                    }
                 }
             }
         }
     }
+
+
 
 
 

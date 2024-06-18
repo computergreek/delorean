@@ -18,25 +18,20 @@ DEST="/Volumes/SFA-All/User Data/$(whoami)/"
 # Log file
 LOG_FILE="$HOME/delorean.log"
 
-# Function to count failure attempts
-count_failures() {
-    grep -c 'Backup Failed: Network drive inaccessible' "$LOG_FILE"
+# Function to count failure attempts since the last successful backup
+count_failures_since_last_success() {
+    awk '/Backup completed successfully/{count=0} /Backup Failed: Network drive inaccessible/{count++} END{print count}' "$LOG_FILE"
 }
 
 # Function to log a failure
 log_failure() {
-    failureCount=$(count_failures)
+    failureCount=$(count_failures_since_last_success)
     echo "$(date '+%Y-%m-%d %H:%M:%S') - Backup Failed: Network drive inaccessible (Failure count: $((failureCount + 1)))" >> "$LOG_FILE"
 }
 
 # Function to log a successful backup
 log_success() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - Backup completed successfully" >> "$LOG_FILE"
-}
-
-# Function to reset the failure count
-reset_failure_count() {
-    sed -i '' '/Backup Failed: Network drive inaccessible/d' "$LOG_FILE"
 }
 
 # Check if the network drive is mounted by testing if the destination directory exists and is accessible
@@ -68,7 +63,6 @@ done
 # Log the overall result
 if [ "$overall_success" = true ]; then
     log_success
-    reset_failure_count
 else
     if [ "$1" = "user_aborted" ]; then
         echo "$(date '+%Y-%m-%d %H:%M:%S') - Backup Failed: User aborted" >> "$LOG_FILE"

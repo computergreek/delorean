@@ -30,6 +30,7 @@ class StatusMenuController: NSObject {
         super.awakeFromNib()
         setupMenuIcon()
         setupInitialMenuState()
+        updateLastBackupItem()  // Ensure this is the correct method call
         
         NotificationCenter.default.addObserver(self, selector: #selector(backupDidStart), name: .backupDidStart, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(backupDidFinish), name: .backupDidFinish, object: nil)
@@ -85,6 +86,8 @@ class StatusMenuController: NSObject {
 
                     self.isRunning = false
                     print("DEBUG: isRunning after resetting: \(self.isRunning)")
+                    
+                    self.updateLastBackupItem()
 
                     NotificationCenter.default.post(name: .backupDidFinish, object: nil)  // Notify that backup finished
                 }
@@ -111,7 +114,7 @@ class StatusMenuController: NSObject {
     @objc func backupDidFinish() {
         print("DEBUG: Backup did finish.")
         updateUIForBackupEnd()
-        updateLastBackupTime()  // Ensure the last backup time is updated
+        updateLastBackupItem()  // Ensure the last backup time is updated
     }
 
     func setupMenuIcon() {
@@ -125,8 +128,7 @@ class StatusMenuController: NSObject {
         startBackupItem.isHidden = false
         abortBackupItem.isHidden = true
         backupInProgressItem.isHidden = true
-        backupInProgressItem.isEnabled = false
-        updateLastBackupTime()
+        updateLastBackupItem()  // Ensure this is the correct method call
         lastBackupItem.isEnabled = false  // Make last backup item non-interactive
         lastBackupItem.isHidden = isRunning  // Hide last backup item if backup is in progress
     }
@@ -223,31 +225,51 @@ class StatusMenuController: NSObject {
         }
     }
     
-    func updateLastBackupTime() {
-        guard let lastBackupItem = lastBackupItem else {
-            print("DEBUG: lastBackupItem is not connected")
+    func updateLastBackupItem() {
+        let logFilePath = "\(NSHomeDirectory())/delorean.log"
+        
+        guard FileManager.default.fileExists(atPath: logFilePath) else {
+            lastBackupItem.title = "Last Backup: No backups found"
             return
         }
         
-        let logPath = "\(NSHomeDirectory())/delorean.log"
-
-        if !FileManager.default.fileExists(atPath: logPath) {
-            // Create the log file if it doesn't exist
-            FileManager.default.createFile(atPath: logPath, contents: nil, attributes: nil)
-        }
-        
         do {
-            let logContent = try String(contentsOfFile: logPath, encoding: .utf8)
-            if let lastEntry = logContent.components(separatedBy: "\n").filter({ !$0.isEmpty }).last {
-                lastBackupItem.title = "Last Backup: \(lastEntry)"
+            let logContent = try String(contentsOfFile: logFilePath, encoding: .utf8)
+            let logEntries = logContent.components(separatedBy: "\n").filter { !$0.isEmpty }
+            
+            if let lastSuccessfulBackup = logEntries.reversed().first(where: { $0.contains("Backup completed successfully") }) {
+                // Extract the date string from the log entry
+                let components = lastSuccessfulBackup.components(separatedBy: " - ")
+                if components.count > 1 {
+                    let dateStr = components[0].trimmingCharacters(in: .whitespaces)
+                    let displayDate = formatDate(dateStr: dateStr)
+                    lastBackupItem.title = "Last Backup: \(displayDate)"
+                } else {
+                    lastBackupItem.title = "Last Backup: No successful backups found"
+                }
             } else {
-                lastBackupItem.title = "Last Backup: N/A"
+                lastBackupItem.title = "Last Backup: No successful backups found"
             }
         } catch {
-            lastBackupItem.title = "Last Backup: N/A"
+            lastBackupItem.title = "Last Backup: Error reading log"
             print("DEBUG: Failed to read log file: \(error)")
         }
-        lastBackupItem.isEnabled = false  // Make last backup item non-interactive
     }
-    
+
+    func formatDate(dateStr: String) -> String {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        dateFormatter.timeZone = TimeZone.current
+        
+        if let date = dateFormatter.date(from: dateStr) {
+            let displayFormatter = DateFormatter()
+            displayFormatter.dateFormat = "MMMM d, h:mm a"
+            displayFormatter.timeZone = TimeZone.current
+            return displayFormatter.string(from: date)
+        } else {
+            return dateStr
+        }
+    }
+
 }
+

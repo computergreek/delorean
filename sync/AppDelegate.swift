@@ -115,17 +115,23 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         timeFormatter.timeZone = TimeZone.current
 
         let logDateFormatter = DateFormatter()
-        logDateFormatter.dateFormat = "yyyy-MM-dd"
+        logDateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
         logDateFormatter.timeZone = TimeZone.current
 
         let currentTimeString = timeFormatter.string(from: Date())
-        let currentDate = logDateFormatter.string(from: Date())
+        let currentDateString = logDateFormatter.string(from: Date()).prefix(10) // Get the current date in yyyy-MM-dd format
+        let currentDateTime = logDateFormatter.string(from: Date())
 
         guard let currentTime = timeFormatter.date(from: currentTimeString),
-              let rangeStart = timeFormatter.date(from: self.rangeStart),
               let rangeEnd = timeFormatter.date(from: self.rangeEnd),
               let backupTime = timeFormatter.date(from: "\(self.backupHour):\(self.backupMinute)") else {
             print("DEBUG: There was an error parsing the date or time.")
+            return
+        }
+
+        // If current time is not within the scheduled backup window, exit
+        if currentTime < backupTime || currentTime > rangeEnd {
+            print("DEBUG: Current time is outside the backup window.")
             return
         }
 
@@ -154,15 +160,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         }
 
         let logEntries = logContent.components(separatedBy: "\n").filter { !$0.isEmpty }
-//        let lastLogEntry = logEntries.last ?? ""
-        let successfulBackupsToday = logEntries.filter { $0.contains("Backup completed successfully") && $0.contains(currentDate) }
+        let successfulBackupsToday = logEntries.filter { $0.contains("Backup completed successfully") && $0.contains(currentDateString) }
         didRunBackupToday = !successfulBackupsToday.isEmpty
         print("DEBUG: Backup log found. Did run backup today? \(didRunBackupToday)")
-
-        // Count failures since the last successful backup
-        let recentFailures = logEntries.reversed().prefix(while: { !$0.contains("Backup completed successfully") }).filter { $0.contains("Backup Failed: Network drive inaccessible") }
-        let failureCount = recentFailures.count
-        print("DEBUG: Failure count since last successful backup: \(failureCount)")
 
         // Ensure the network drive is accessible before scheduling a backup
         let destPath = "/Volumes/SFA-All/User Data/\(NSUserName())"
@@ -171,7 +171,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         print("DEBUG: Checking if network drive is accessible.")
         if fileManager.fileExists(atPath: destPath) {
             print("DEBUG: Network drive is accessible.")
-            if !didRunBackupToday && currentTime >= rangeStart && currentTime <= rangeEnd {
+            if !didRunBackupToday && currentTime >= backupTime && currentTime <= rangeEnd {
                 if currentTime >= backupTime {
                     print("DEBUG: Conditions met for starting backup.")
                     isBackupRunning = true
@@ -186,7 +186,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             }
         } else {
             print("DEBUG: Network drive is not accessible.")
-            if !didRunBackupToday {
+            if !didRunBackupToday && currentTime >= backupTime && currentTime <= rangeEnd {
                 // Trigger the script to log a new failure entry
                 let scriptPath = Bundle.main.path(forResource: "sync_files", ofType: "sh")!
                 let process = Process()
@@ -194,12 +194,28 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
                 process.arguments = [scriptPath]
                 process.launch()
                 process.waitUntilExit()
-                
-                let recentFailuresUpdated = logEntries.reversed().prefix(while: { !$0.contains("Backup completed successfully") }).filter { $0.contains("Backup Failed: Network drive inaccessible") }
-                let failureCountUpdated = recentFailuresUpdated.count
-                print("DEBUG: Updated failure count: \(failureCountUpdated)")
 
-                if failureCountUpdated >= maxDayAttemptNotification {
+                // Recalculate recent failures
+                do {
+                    logContent = try String(contentsOfFile: logFilePath, encoding: .utf8)
+                    print("DEBUG: Successfully read log file after failure entry.")
+                } catch {
+                    print("DEBUG: Failed to read log file: \(error)")
+                    logContent = ""  // Ensure logContent is initialized even if reading fails
+                }
+ß
+                let updatedLogEntries = logContent.components(separatedBy: "\n").filter { !$0.isEmpty }
+                let updatedFailureCount = updatedLogEntries.reversed().prefix(while: { !$0.contains("Backup completed successfully") }).filter { entry in
+                    let entryDateString = entry.prefix(19)
+                    if let entryDateTime = logDateFormatter.date(from: String(entryDateString)) {
+                        return entry.contains("Backup Failed: Network drive inaccessible") && String(entryDateString.prefix(10)) == currentDateString && entryDateTime.timeIntervalSince1970 >= backupTime.timeIntervalSince1970
+                    }
+                    return false
+                }.count
+
+                print("DEBUG: Updated failure count: \(updatedFailureCount)")
+
+                if updatedFailureCount >= maxDayAttemptNotification {
                     print("DEBUG: Failure count threshold met, sending notification.")
                     DispatchQueue.main.async {
                         self.notifyUser(title: "Backup Error", informativeText: "The network drive is not accessible. Ensure you are connected to the network and try again.")
@@ -208,6 +224,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             }
         }
     }
+
+
 
 
 

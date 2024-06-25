@@ -72,7 +72,7 @@ class StatusMenuController: NSObject {
                 DispatchQueue.main.async {
                     guard let self = self else { return }
 
-                    let success = process.terminationStatus == 0
+                    let success = process.terminationStatus == 0ß
                     if success {
                         self.notifyUser(title: "Sync Completed", informativeText: "Your files have been successfully backed up.")
                     } else if !self.isUserInitiatedAbort {

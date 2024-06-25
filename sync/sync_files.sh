@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Backup scheduling parameters
-scheduledBackupTime="13:26"
+scheduledBackupTime="13:39"
 rangeStart="07:00"
 rangeEnd="21:00"
 # How often the app should check if an rsync happened that day in seconds (3600 seconds = 1 hour)
@@ -33,6 +33,7 @@ log_failure() {
 # Function to log a successful backup
 log_success() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - Backup completed successfully" >> "$LOG_FILE"
+    echo "Last successful backup: $(date '+%Y-%m-%d')" >> "$LOG_FILE"
 }
 
 # Check if the network drive is mounted by testing if the destination directory exists and is accessible

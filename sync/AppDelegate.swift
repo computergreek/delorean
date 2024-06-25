@@ -10,6 +10,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     var rangeStart = ""
     var rangeEnd = ""
     var frequency: TimeInterval = 30
+    var maxDayAttemptNotification = 0 // Default value, will be overwritten by loadConfig()
+    var logFilePath = "\(NSHomeDirectory())/delorean.log" // Default value, will be overwritten by loadConfig()
+
 
     // MARK: - App Lifecycle
     func applicationDidFinishLaunching(_ aNotification: Notification) {
@@ -19,6 +22,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         UNUserNotificationCenter.current().delegate = self
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in }
         loadConfig()
+        checkProlongedFailures() // Check for prolonged failures
     }
 
     @objc func backupDidStart(notification: Notification) {
@@ -27,6 +31,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 
     @objc func backupDidFinish(notification: Notification) {
         isBackupRunning = false
+        checkProlongedFailures()
     }
 
     func applicationWillTerminate(_ aNotification: Notification) {
@@ -62,37 +67,31 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
                             self.rangeEnd = components[1]
                         case "frequencyCheck":
                             self.frequency = TimeInterval(components[1]) ?? 3600
+                        case "maxDayAttemptNotification":
+                            self.maxDayAttemptNotification = Int(components[1]) ?? 6
+                        case "LOG_FILE":
+                            self.logFilePath = components[1].replacingOccurrences(of: "$HOME", with: NSHomeDirectory())
+                            print("DEBUG: logFilePath set to \(self.logFilePath)")
                         default: break
                     }
                 }
             }
             self.startBackupTimer()
         }
+        checkProlongedFailures()
     }
 
     private func startBackupTimer() {
         backupTimer?.invalidate()
-        backupTimer = Timer.scheduledTimer(timeInterval: frequency, target: self, selector: #selector(checkBackupSchedule), userInfo: nil, repeats: true)
-        checkBackupSchedule()
+        backupTimer = Timer.scheduledTimer(timeInterval: frequency, target: self, selector: #selector(performScheduledChecks), userInfo: nil, repeats: true)
+        performScheduledChecks()
     }
 
-    func readMaxDayAttemptNotification() -> Int {
-        let scriptPath = Bundle.main.path(forResource: "sync_files", ofType: "sh") ?? ""
-        do {
-            let scriptContent = try String(contentsOfFile: scriptPath)
-            let regex = try NSRegularExpression(pattern: "maxDayAttemptNotification=(\\d+)", options: [])
-            if let match = regex.firstMatch(in: scriptContent, options: [], range: NSRange(location: 0, length: scriptContent.utf16.count)) {
-                if let range = Range(match.range(at: 1), in: scriptContent) {
-                    let value = scriptContent[range]
-                    return Int(value) ?? 6 // Default to 6 if conversion fails
-                }
-            }
-        } catch {
-            print("DEBUG: Failed to read sync_files.sh: \(error)")
-        }
-        return 6 // Default value
+    @objc private func performScheduledChecks() {
+        checkBackupSchedule()
+        checkProlongedFailures()
     }
-    
+
     
     
     
@@ -104,7 +103,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     
     
     @objc private func checkBackupSchedule() {
-        let maxDayAttemptNotification = readMaxDayAttemptNotification()
         guard !isBackupRunning else {
             print("DEBUG: Backup is already in progress.")
             return
@@ -135,21 +133,19 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             return
         }
 
-        let logFilePath = "\(NSHomeDirectory())/delorean.log"
         var didRunBackupToday = false
         var logContent = ""
 
-        if !FileManager.default.fileExists(atPath: logFilePath) {
-            // Create the log file if it doesn't exist
-            FileManager.default.createFile(atPath: logFilePath, contents: nil, attributes: nil)
-        }
-
-        do {
-            logContent = try String(contentsOfFile: logFilePath, encoding: .utf8)
-            print("DEBUG: Successfully read log file.")
-        } catch {
-            print("DEBUG: Failed to read log file: \(error)")
-            logContent = ""  // Ensure logContent is initialized even if reading fails
+        if FileManager.default.fileExists(atPath: logFilePath) {
+            do {
+                logContent = try String(contentsOfFile: logFilePath, encoding: .utf8)
+                print("DEBUG: Successfully read log file.")
+            } catch {
+                print("DEBUG: Failed to read log file: \(error)")
+                logContent = ""  // Ensure logContent is initialized even if reading fails
+            }
+        } else {
+            print("DEBUG: Log file does not exist yet.")
         }
 
         if logContent.isEmpty {
@@ -225,20 +221,54 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         }
     }
 
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    private func checkProlongedFailures() {
+        let logDateFormatter = DateFormatter()
+        logDateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        logDateFormatter.timeZone = TimeZone.current
 
+        var lastSuccessfulBackupDate: Date?
 
+        if FileManager.default.fileExists(atPath: logFilePath) {
+            do {
+                let logContent = try String(contentsOfFile: logFilePath, encoding: .utf8)
+                let logEntries = logContent.components(separatedBy: "\n").filter { !$0.isEmpty }
+                for entry in logEntries.reversed() { // Iterate in reverse to find the most recent success
+                    if entry.contains("Backup completed successfully") {
+                        let dateString = entry.prefix(19) // Extract the date and time portion
+                        lastSuccessfulBackupDate = logDateFormatter.date(from: String(dateString))
+                        break
+                    }
+                }
+            } catch {
+                print("DEBUG: Failed to read log file: \(error)")
+            }
+        } else {
+            print("DEBUG: Log file does not exist yet.")
+        }
 
+        guard let lastBackupDate = lastSuccessfulBackupDate else {
+            print("DEBUG: No valid last successful backup date found.")
+            return
+        }
 
-
-
-    
-    
-    
-    
-    
-    
-    
-    
+        let currentDate = Date()
+        let calendar = Calendar.current
+        if let daysBetween = calendar.dateComponents([.day], from: lastBackupDate, to: currentDate).day {
+            if daysBetween >= maxDayAttemptNotification {  // Notify if no successful backup for maxDayAttemptNotification days
+                notifyUser(title: "Backup Warning", informativeText: "No successful backup for \(daysBetween) days. Please check your network drive.")
+            }
+        }
+    }
 
     @objc private func performBackup() {
         guard !isBackupRunning else {

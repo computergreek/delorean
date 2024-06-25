@@ -63,9 +63,7 @@ class StatusMenuController: NSObject {
 
         if let scriptPath = notification.userInfo?["scriptPath"] as? String {
             isRunning = true
-            print("DEBUG: isRunning before starting backup: \(isRunning)")
-
-            NotificationCenter.default.post(name: .backupDidStart, object: nil)  // Notify that backup started
+            NotificationCenter.default.post(name: .backupDidStart, object: nil)
             backupTask = Process()
             backupTask?.launchPath = "/bin/bash"
             backupTask?.arguments = [scriptPath]
@@ -75,33 +73,26 @@ class StatusMenuController: NSObject {
                     guard let self = self else { return }
 
                     let success = process.terminationStatus == 0
-                    print("DEBUG: Backup task terminated with success: \(success)")
-                    print("DEBUG: isRunning before resetting: \(self.isRunning)")
-
                     if success {
                         self.notifyUser(title: "Sync Completed", informativeText: "Your files have been successfully backed up.")
-                    } else {
+                    } else if !self.isUserInitiatedAbort {
                         self.notifyUser(title: "Sync Failed", informativeText: "There was an issue with the backup process.")
                     }
 
                     self.isRunning = false
-                    print("DEBUG: isRunning after resetting: \(self.isRunning)")
-                    
                     self.updateLastBackupItem()
-
-                    NotificationCenter.default.post(name: .backupDidFinish, object: nil)  // Notify that backup finished
+                    NotificationCenter.default.post(name: .backupDidFinish, object: nil)
+                    self.isUserInitiatedAbort = false  // Reset the flag
                 }
             }
 
             do {
-                print("DEBUG: Starting backup task.")
                 try backupTask?.run()
             } catch {
                 print("DEBUG: Failed to start the backup task.")
                 notifyUser(title: "Error", informativeText: "Failed to start the backup process.")
                 self.isRunning = false
-                print("DEBUG: isRunning after catching error: \(self.isRunning)")
-                NotificationCenter.default.post(name: .backupDidFinish, object: nil)  // Notify that backup finished
+                NotificationCenter.default.post(name: .backupDidFinish, object: nil)
             }
         }
     }
@@ -145,13 +136,15 @@ class StatusMenuController: NSObject {
         NotificationCenter.default.post(name: Notification.Name("StartBackup"), object: nil, userInfo: ["scriptPath": Bundle.main.path(forResource: "sync_files", ofType: "sh")!])
     }
     
+    var isUserInitiatedAbort: Bool = false
     @IBAction func abortBackupClicked(_ sender: NSMenuItem) {
         guard let task = backupTask, isRunning else {
             print("DEBUG: Abort backup clicked but no backup is currently in progress.")
             notifyUser(title: "Abort Ignored", informativeText: "No backup is currently in progress.")
             return
         }
-
+        
+        isUserInitiatedAbort = true
         task.terminate()
         isRunning = false
         NotificationCenter.default.post(name: .backupDidFinish, object: nil)  // Notify that backup finished
@@ -160,11 +153,11 @@ class StatusMenuController: NSObject {
         let logFilePath = "\(NSHomeDirectory())/delorean.log"
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-        let logEntry = "\(dateFormatter.string(from: Date())) - Backup Failed: User aborted"
+        let logEntry = "\(dateFormatter.string(from: Date())) - Backup Failed: User aborted\n"
 
         do {
             var logContent = try String(contentsOfFile: logFilePath, encoding: .utf8)
-            logContent += "\n\(logEntry)"
+            logContent += logEntry
             try logContent.write(toFile: logFilePath, atomically: true, encoding: .utf8)
         } catch {
             print("DEBUG: Failed to log user-aborted backup: \(error)")

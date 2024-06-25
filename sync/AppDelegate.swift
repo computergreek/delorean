@@ -203,7 +203,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
                     print("DEBUG: Failed to read log file: \(error)")
                     logContent = ""  // Ensure logContent is initialized even if reading fails
                 }
-ß
+
                 let updatedLogEntries = logContent.components(separatedBy: "\n").filter { !$0.isEmpty }
                 let updatedFailureCount = updatedLogEntries.reversed().prefix(while: { !$0.contains("Backup completed successfully") }).filter { entry in
                     let entryDateString = entry.prefix(19)

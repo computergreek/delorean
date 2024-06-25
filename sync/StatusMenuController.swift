@@ -151,19 +151,25 @@ class StatusMenuController: NSObject {
             notifyUser(title: "Abort Ignored", informativeText: "No backup is currently in progress.")
             return
         }
-        
+
         task.terminate()
         isRunning = false
         NotificationCenter.default.post(name: .backupDidFinish, object: nil)  // Notify that backup finished
-        
-        // Log the user-aborted backup
-        let scriptPath = Bundle.main.path(forResource: "sync_files", ofType: "sh")!
-        let process = Process()
-        process.launchPath = "/bin/bash"
-        process.arguments = [scriptPath, "user_aborted"]
-        process.launch()
-        process.waitUntilExit()
-        
+
+        // Log the user-aborted backup with correct date format
+        let logFilePath = "\(NSHomeDirectory())/delorean.log"
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        let logEntry = "\(dateFormatter.string(from: Date())) - Backup Failed: User aborted"
+
+        do {
+            var logContent = try String(contentsOfFile: logFilePath, encoding: .utf8)
+            logContent += "\n\(logEntry)"
+            try logContent.write(toFile: logFilePath, atomically: true, encoding: .utf8)
+        } catch {
+            print("DEBUG: Failed to log user-aborted backup: \(error)")
+        }
+
         notifyUser(title: "Backup Aborted", informativeText: "The backup process has been cancelled.")
     }
     
@@ -268,5 +274,4 @@ class StatusMenuController: NSObject {
             return dateStr
         }
     }
-
 }

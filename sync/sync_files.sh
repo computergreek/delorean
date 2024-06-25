@@ -67,6 +67,7 @@ if [ "$overall_success" = true ]; then
 else
     if [ "$1" = "user_aborted" ]; then
         echo "$(date '+%Y-%m-%d %H:%M:%S') - Backup Failed: User aborted" >> "$LOG_FILE"
+        exit 0  # Exit immediately after logging user abort
     else
         log_failure
     fi

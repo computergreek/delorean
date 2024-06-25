@@ -10,7 +10,8 @@ maxDayAttemptNotification=6
 
 # Define source directories
 #SOURCES=("$HOME/Pictures" "$HOME/Documents" "$HOME/Downloads")
-SOURCES=("$HOME/Pictures")
+SOURCES=("$HOME/Pictures" "$HOME/Downloads")
+#SOURCES=("$HOME/Pictures")
 
 # Define destination directory
 DEST="/Volumes/SFA-All/User Data/$(whoami)/"

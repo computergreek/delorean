@@ -125,12 +125,13 @@ class StatusMenuController: NSObject {
     }
     
     func setupInitialMenuState() {
-        startBackupItem.isHidden = false
-        abortBackupItem.isHidden = true
-        backupInProgressItem.isHidden = true
-        updateLastBackupItem()  // Ensure this is the correct method call
+        startBackupItem.isHidden = isRunning
+        abortBackupItem.isHidden = !isRunning
+        backupInProgressItem.isHidden = !isRunning
+        backupInProgressItem.isEnabled = !isRunning  // Disable when visible (during backup)
         lastBackupItem.isEnabled = false  // Make last backup item non-interactive
         lastBackupItem.isHidden = isRunning  // Hide last backup item if backup is in progress
+        updateLastBackupItem()
     }
     
     // MARK: - Actions
@@ -209,11 +210,7 @@ class StatusMenuController: NSObject {
         DispatchQueue.main.async {
             print("DEBUG: Updating UI for backup start.")
             self.isRunning = true
-            self.startBackupItem.isHidden = true
-            self.abortBackupItem.isHidden = false
-            self.abortBackupItem.isEnabled = true
-            self.backupInProgressItem.isHidden = false
-            self.lastBackupItem.isHidden = true  // Hide last backup item during backup
+            self.setupInitialMenuState()
         }
     }
 
@@ -222,6 +219,7 @@ class StatusMenuController: NSObject {
             print("DEBUG: Updating UI for backup end.")
             self.isRunning = false
             self.setupInitialMenuState()
+            self.updateLastBackupItem()
         }
     }
     
@@ -272,4 +270,3 @@ class StatusMenuController: NSObject {
     }
 
 }
-

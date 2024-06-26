@@ -21,8 +21,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 
         UNUserNotificationCenter.current().delegate = self
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in }
-        loadConfig()
-        checkProlongedFailures() // Check for prolonged failures
+        loadConfig()  // This should be the only place where the timer starts
+        // Removed checkProlongedFailures from here to avoid immediate notification
     }
 
     @objc func backupDidStart(notification: Notification) {
@@ -31,7 +31,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 
     @objc func backupDidFinish(notification: Notification) {
         isBackupRunning = false
-        checkProlongedFailures()
+//        checkProlongedFailures()
     }
 
     func applicationWillTerminate(_ aNotification: Notification) {
@@ -76,18 +76,20 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
                     }
                 }
             }
-            self.startBackupTimer()
+            print("DEBUG: loadConfig completed. Starting backup timer.")
+            self.startBackupTimer() // Ensure this is only called once
         }
-        checkProlongedFailures()
     }
 
     private func startBackupTimer() {
         backupTimer?.invalidate()
+        print("DEBUG: Setting up the backup timer.")
         backupTimer = Timer.scheduledTimer(timeInterval: frequency, target: self, selector: #selector(performScheduledChecks), userInfo: nil, repeats: true)
-        performScheduledChecks()
+        performScheduledChecks() // Perform an immediate check
     }
 
     @objc private func performScheduledChecks() {
+        print("DEBUG: performScheduledChecks called.")
         checkBackupSchedule()
         checkProlongedFailures()
     }
@@ -103,6 +105,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     
     
     @objc private func checkBackupSchedule() {
+        print("DEBUG: checkBackupSchedule called.")
         guard !isBackupRunning else {
             print("DEBUG: Backup is already in progress.")
             return
@@ -264,8 +267,35 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         let currentDate = Date()
         let calendar = Calendar.current
         if let daysBetween = calendar.dateComponents([.day], from: lastBackupDate, to: currentDate).day {
-            if daysBetween >= maxDayAttemptNotification {  // Notify if no successful backup for maxDayAttemptNotification days
-                notifyUser(title: "Backup Warning", informativeText: "No successful backup for \(daysBetween) days. Please check your network drive.")
+            if daysBetween >= maxDayAttemptNotification {
+                // Check if we have already sent an overdue notification today
+                if let lastNotificationDate = lastOverdueNotificationDate, calendar.isDateInToday(lastNotificationDate) {
+                    return
+                }
+
+                // Check if the current time is within the scheduled backup window
+                let timeFormatter = DateFormatter()
+                timeFormatter.dateFormat = "HH:mm"
+                timeFormatter.timeZone = TimeZone.current
+
+                let currentTimeString = timeFormatter.string(from: currentDate)
+                let backupTimeString = "\(self.backupHour):\(self.backupMinute)"
+                let rangeEndString = self.rangeEnd
+
+                guard let currentTime = timeFormatter.date(from: currentTimeString),
+                      let backupTime = timeFormatter.date(from: backupTimeString),
+                      let rangeEnd = timeFormatter.date(from: rangeEndString) else {
+                    print("DEBUG: There was an error parsing the date or time.")
+                    return
+                }
+
+                if currentTime >= backupTime && currentTime <= rangeEnd {
+                    // Send overdue notification
+                    notifyUser(title: "Backup Overdue", informativeText: "It's been \(daysBetween) days since the files in your computer were last backed up.")
+                    lastOverdueNotificationDate = currentDate
+                } else {
+                    print("DEBUG: Current time is outside the backup window.")
+                }
             }
         }
     }
@@ -329,6 +359,47 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             if let error = error {
                 print("Error posting user notification: \(error.localizedDescription)")
             }
+        }
+    }
+    
+    var lastOverdueNotificationDate: Date?
+
+    private func daysSinceLastBackup() -> Int? {
+        let logDateFormatter = DateFormatter()
+        logDateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        logDateFormatter.timeZone = TimeZone.current
+
+        var lastSuccessfulBackupDate: Date?
+
+        if FileManager.default.fileExists(atPath: logFilePath) {
+            do {
+                let logContent = try String(contentsOfFile: logFilePath, encoding: .utf8)
+                let logEntries = logContent.components(separatedBy: "\n").filter { !$0.isEmpty }
+                for entry in logEntries.reversed() { // Iterate in reverse to find the most recent success
+                    if entry.contains("Backup completed successfully") {
+                        let dateString = entry.prefix(19) // Extract the date and time portion
+                        lastSuccessfulBackupDate = logDateFormatter.date(from: String(dateString))
+                        break
+                    }
+                }
+            } catch {
+                print("DEBUG: Failed to read log file: \(error)")
+            }
+        } else {
+            print("DEBUG: Log file does not exist yet.")
+        }
+
+        guard let lastBackupDate = lastSuccessfulBackupDate else {
+            print("DEBUG: No valid last successful backup date found.")
+            return nil
+        }
+
+        let currentDate = Date()
+        let calendar = Calendar.current
+        if let daysBetween = calendar.dateComponents([.day], from: lastBackupDate, to: currentDate).day {
+            return daysBetween
+        } else {
+            return nil
         }
     }
 }

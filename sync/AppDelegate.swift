@@ -121,7 +121,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 
         let currentTimeString = timeFormatter.string(from: Date())
         let currentDateString = logDateFormatter.string(from: Date()).prefix(10) // Get the current date in yyyy-MM-dd format
-        let currentDateTime = logDateFormatter.string(from: Date())
 
         guard let currentTime = timeFormatter.date(from: currentTimeString),
               let rangeEnd = timeFormatter.date(from: self.rangeEnd),
@@ -168,59 +167,26 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         let fileManager = FileManager.default
 
         print("DEBUG: Checking if network drive is accessible.")
-        if fileManager.fileExists(atPath: destPath) {
-            print("DEBUG: Network drive is accessible.")
-            if !didRunBackupToday && currentTime >= backupTime && currentTime <= rangeEnd {
-                if currentTime >= backupTime {
-                    print("DEBUG: Conditions met for starting backup.")
-                    isBackupRunning = true
-                    NotificationCenter.default.post(name: Notification.Name("StartBackup"), object: nil, userInfo: ["scriptPath": Bundle.main.path(forResource: "sync_files", ofType: "sh")!])
-                } else {
-                    print("DEBUG: Not yet time for scheduled backup.")
-                }
-            } else if didRunBackupToday {
-                print("DEBUG: Backup already completed for today.")
-            } else {
-                print("DEBUG: Current time is outside the backup window.")
-            }
-        } else {
+        if !fileManager.fileExists(atPath: destPath) {
             print("DEBUG: Network drive is not accessible.")
-            if !didRunBackupToday && currentTime >= backupTime && currentTime <= rangeEnd {
-                // Trigger the script to log a new failure entry
-                let scriptPath = Bundle.main.path(forResource: "sync_files", ofType: "sh")!
-                let process = Process()
-                process.launchPath = "/bin/bash"
-                process.arguments = [scriptPath]
-                process.launch()
-                process.waitUntilExit()
+            // Call the sync_files.sh script to log the failure
+            let scriptPath = Bundle.main.path(forResource: "sync_files", ofType: "sh")!
+            let process = Process()
+            process.launchPath = "/bin/bash"
+            process.arguments = [scriptPath]
+            process.launch()
+            process.waitUntilExit()
+            return
+        }
 
-                // Recalculate recent failures
-                do {
-                    logContent = try String(contentsOfFile: logFilePath, encoding: .utf8)
-                    print("DEBUG: Successfully read log file after failure entry.")
-                } catch {
-                    print("DEBUG: Failed to read log file: \(error)")
-                    logContent = ""  // Ensure logContent is initialized even if reading fails
-                }
-
-                let updatedLogEntries = logContent.components(separatedBy: "\n").filter { !$0.isEmpty }
-                let updatedFailureCount = updatedLogEntries.reversed().prefix(while: { !$0.contains("Backup completed successfully") }).filter { entry in
-                    let entryDateString = entry.prefix(19)
-                    if let entryDateTime = logDateFormatter.date(from: String(entryDateString)) {
-                        return entry.contains("Backup Failed: Network drive inaccessible") && String(entryDateString.prefix(10)) == currentDateString && entryDateTime.timeIntervalSince1970 >= backupTime.timeIntervalSince1970
-                    }
-                    return false
-                }.count
-
-                print("DEBUG: Updated failure count: \(updatedFailureCount)")
-
-                if updatedFailureCount >= maxDayAttemptNotification {
-                    print("DEBUG: Failure count threshold met, sending notification.")
-                    DispatchQueue.main.async {
-                        self.notifyUser(title: "Backup Error", informativeText: "The network drive is not accessible. Ensure you are connected to the network and try again.")
-                    }
-                }
-            }
+        if !didRunBackupToday && currentTime >= backupTime && currentTime <= rangeEnd {
+            print("DEBUG: Conditions met for starting backup.")
+            isBackupRunning = true
+            NotificationCenter.default.post(name: Notification.Name("StartBackup"), object: nil, userInfo: ["scriptPath": Bundle.main.path(forResource: "sync_files", ofType: "sh")!])
+        } else if didRunBackupToday {
+            print("DEBUG: Backup already completed for today.")
+        } else {
+            print("DEBUG: Current time is outside the backup window.")
         }
     }
 
@@ -291,7 +257,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 
                 if currentTime >= backupTime && currentTime <= rangeEnd {
                     // Send overdue notification
-                    notifyUser(title: "Backup Overdue", informativeText: "It's been \(daysBetween) days since the files in your computer were last backed up.")
+                    notifyUser(title: "Backup Overdue", informativeText: "It's been \(daysBetween) days since the files on your computer were last backed up.")
                     lastOverdueNotificationDate = currentDate
                 } else {
                     print("DEBUG: Current time is outside the backup window.")
@@ -299,6 +265,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             }
         }
     }
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
 
     @objc private func performBackup() {
         guard !isBackupRunning else {

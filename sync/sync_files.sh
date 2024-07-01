@@ -15,9 +15,11 @@ SOURCES=("$HOME/Pictures" "$HOME/Downloads")
 
 # Define destination directory
 DEST="/Volumes/SFA-All/User Data/$(whoami)/"
+mkdir -p "$DEST" # Create destination directory if it doesn't exist
 
 # Log file
 LOG_FILE="$HOME/delorean.log"
+mkdir -p "$(dirname "$LOG_FILE")" # Create log file directory if it doesn't exist
 
 # Function to count failure attempts since the last successful backup
 count_failures_since_last_success() {

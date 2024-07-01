@@ -12,7 +12,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     var frequency: TimeInterval = 30
     var maxDayAttemptNotification = 0 // Default value, will be overwritten by loadConfig()
     var logFilePath = "\(NSHomeDirectory())/delorean.log" // Default value, will be overwritten by loadConfig()
-
+    var sources: [String] = []
+    var dest: String = ""
 
     // MARK: - App Lifecycle
     func applicationDidFinishLaunching(_ aNotification: Notification) {
@@ -49,31 +50,44 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             return
         }
 
-        let command = "grep '=' \(scriptPath) | grep -v '^#' | tr -d '\"' | tr -d ' '"
+        let command = "grep '=' \(scriptPath) | grep -v '^#' | tr -d '\"'"
         executeShellCommand(command) { output in
             output.forEach { line in
                 let components = line.split(separator: "=").map { String($0) }
                 if components.count == 2 {
-                    switch components[0] {
+                    let key = components[0]
+                    var value = components[1]
+
+                    // Replace placeholders
+                    value = value.replacingOccurrences(of: "$HOME", with: NSHomeDirectory())
+                    value = value.replacingOccurrences(of: "$(whoami)", with: NSUserName())
+
+                    switch key {
                         case "scheduledBackupTime":
-                            let timeComponents = components[1].split(separator: ":").map { String($0) }
+                            let timeComponents = value.split(separator: ":").map { String($0) }
                             if timeComponents.count == 2 {
                                 self.backupHour = timeComponents[0]
                                 self.backupMinute = timeComponents[1]
                             }
                         case "rangeStart":
-                            self.rangeStart = components[1]
+                            self.rangeStart = value
                         case "rangeEnd":
-                            self.rangeEnd = components[1]
+                            self.rangeEnd = value
                         case "frequencyCheck":
-                            self.frequency = TimeInterval(components[1]) ?? 3600
+                            self.frequency = TimeInterval(value) ?? 3600
                         case "maxDayAttemptNotification":
-                            self.maxDayAttemptNotification = Int(components[1]) ?? 6
+                            self.maxDayAttemptNotification = Int(value) ?? 6
+                        case "SOURCES":
+                            self.sources = value.split(separator: " ").map { String($0) }
+                        case "DEST":
+                            self.dest = value
                         case "LOG_FILE":
-                            self.logFilePath = components[1].replacingOccurrences(of: "$HOME", with: NSHomeDirectory())
+                            self.logFilePath = value
                             print("DEBUG: logFilePath set to \(self.logFilePath)")
-                        default: break
+                        default:
+                            print("DEBUG: Ignoring unknown config variable \(key) with value \(value)")
                     }
+                    print("DEBUG: Loaded \(key) with value \(value)")
                 }
             }
             print("DEBUG: loadConfig completed. Starting backup timer.")
@@ -164,21 +178,29 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 
         print("DEBUG: Backup log found. Did run backup today? \(didRunBackupToday)")
 
+        // Check if there are any successful backups recorded at all
+        let allSuccessfulBackups = logEntries.filter { $0.contains("Backup completed successfully") }
+        let hasSuccessfulBackups = !allSuccessfulBackups.isEmpty
+
         // Ensure the network drive is accessible before scheduling a backup
-        let destPath = "/Volumes/SFA-All/User Data/\(NSUserName())"
         let fileManager = FileManager.default
 
         print("DEBUG: Checking if network drive is accessible.")
-        if !fileManager.fileExists(atPath: destPath) {
+        if !fileManager.fileExists(atPath: self.dest) {
             print("DEBUG: Network drive is not accessible.")
             if !didRunBackupToday && failedBackupsToday.isEmpty {
-                if currentTime >= backupTime && failedBackupsToday.isEmpty {
-                    logFailure()  // Log failure only once per day if not accessible during scheduled time
-                } else if currentTime > backupTime && currentTime <= rangeEnd && failedBackupsToday.isEmpty {
-                    logFailure()  // Log failure if this is the first interval check past the scheduled time
-                    return
-                }
+                logFailure()  // Log failure only once per day if not accessible during scheduled time
+            } else if currentTime > backupTime && currentTime <= rangeEnd && failedBackupsToday.isEmpty {
+                logFailure()  // Log failure if this is the first interval check past the scheduled time
             }
+            return
+        }
+
+        // Attempt backup if no successful backups are recorded at all
+        if !hasSuccessfulBackups {
+            print("DEBUG: No successful backups recorded, initiating backup.")
+            isBackupRunning = true
+            NotificationCenter.default.post(name: Notification.Name("StartBackup"), object: nil, userInfo: ["scriptPath": Bundle.main.path(forResource: "sync_files", ofType: "sh")!])
             return
         }
 
@@ -243,10 +265,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
                 }
 
                 // Ensure the network drive is accessible before sending overdue notification
-                let destPath = "/Volumes/SFA-All/User Data/\(NSUserName())"
                 let fileManager = FileManager.default
 
-                if !fileManager.fileExists(atPath: destPath) {
+                if !fileManager.fileExists(atPath: self.dest) {
                     print("DEBUG: Network drive is not accessible. Sending overdue notification.")
                     
                     // Check if the current time is within the scheduled backup window
@@ -278,12 +299,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             }
         }
     }
-    
-    
-    
-    
-    
-    
+
     private func logFailure() {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
@@ -319,15 +335,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         }
         return failureCount
     }
-    
+
     func logManualBackupFailure() {
         logFailure()  // Reuse the same log failure function
     }
-    
-    
-    
-    
-    
 
     @objc private func performBackup() {
         guard !isBackupRunning else {

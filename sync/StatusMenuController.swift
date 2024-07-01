@@ -125,6 +125,21 @@ class StatusMenuController: NSObject {
         updateLastBackupItem()
     }
     
+    func logFailure() {
+        let logFilePath = "\(NSHomeDirectory())/delorean.log"
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        let logEntry = "\(dateFormatter.string(from: Date())) - Backup Failed: Network drive inaccessible\n"
+
+        do {
+            var logContent = try String(contentsOfFile: logFilePath, encoding: .utf8)
+            logContent += logEntry
+            try logContent.write(toFile: logFilePath, atomically: true, encoding: .utf8)
+        } catch {
+            print("DEBUG: Failed to log network drive failure: \(error)")
+        }
+    }
+    
     // MARK: - Actions
     @IBAction func startBackupClicked(_ sender: NSMenuItem) {
         guard !isRunning else {
@@ -132,10 +147,19 @@ class StatusMenuController: NSObject {
             notifyUser(title: "Process is still running", informativeText: "A backup process is already in progress.")
             return
         }
-        
+
+        let destPath = "/Volumes/SFA-All/User Data/\(NSUserName())"
+        if !FileManager.default.fileExists(atPath: destPath) {
+            if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
+                appDelegate.logManualBackupFailure()
+            }
+            notifyUser(title: "Backup Failed", informativeText: "Network drive is not accessible.")
+            return
+        }
+
         NotificationCenter.default.post(name: Notification.Name("StartBackup"), object: nil, userInfo: ["scriptPath": Bundle.main.path(forResource: "sync_files", ofType: "sh")!])
     }
-    
+
     var isUserInitiatedAbort: Bool = false
     @IBAction func abortBackupClicked(_ sender: NSMenuItem) {
         guard let task = backupTask, isRunning else {

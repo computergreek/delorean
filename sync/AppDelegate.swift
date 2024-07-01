@@ -159,7 +159,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 
         let logEntries = logContent.components(separatedBy: "\n").filter { !$0.isEmpty }
         let successfulBackupsToday = logEntries.filter { $0.contains("Backup completed successfully") && $0.contains(currentDateString) }
+        let failedBackupsToday = logEntries.filter { $0.contains("Backup Failed: Network drive inaccessible") && $0.contains(currentDateString) }
         didRunBackupToday = !successfulBackupsToday.isEmpty
+
         print("DEBUG: Backup log found. Did run backup today? \(didRunBackupToday)")
 
         // Ensure the network drive is accessible before scheduling a backup
@@ -169,13 +171,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         print("DEBUG: Checking if network drive is accessible.")
         if !fileManager.fileExists(atPath: destPath) {
             print("DEBUG: Network drive is not accessible.")
-            // Call the sync_files.sh script to log the failure
-            let scriptPath = Bundle.main.path(forResource: "sync_files", ofType: "sh")!
-            let process = Process()
-            process.launchPath = "/bin/bash"
-            process.arguments = [scriptPath]
-            process.launch()
-            process.waitUntilExit()
+            if !didRunBackupToday && failedBackupsToday.isEmpty {
+                if currentTime >= backupTime && failedBackupsToday.isEmpty {
+                    logFailure()  // Log failure only once per day if not accessible during scheduled time
+                } else if currentTime > backupTime && currentTime <= rangeEnd && failedBackupsToday.isEmpty {
+                    logFailure()  // Log failure if this is the first interval check past the scheduled time
+                    return
+                }
+            }
             return
         }
 
@@ -281,7 +284,45 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     
     
     
+    private func logFailure() {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        let failureCount = countFailuresSinceLastSuccess() + 1
+        let logEntry = "\(dateFormatter.string(from: Date())) - Backup Failed: Network drive inaccessible (Failure count: \(failureCount))\n"
+
+        do {
+            var logContent = try String(contentsOfFile: logFilePath, encoding: .utf8)
+            logContent += logEntry
+            try logContent.write(toFile: logFilePath, atomically: true, encoding: .utf8)
+        } catch {
+            print("DEBUG: Failed to log network drive failure: \(error)")
+        }
+    }
+
+    private func countFailuresSinceLastSuccess() -> Int {
+        var failureCount = 0
+        if FileManager.default.fileExists(atPath: logFilePath) {
+            do {
+                let logContent = try String(contentsOfFile: logFilePath, encoding: .utf8)
+                let logEntries = logContent.components(separatedBy: "\n").filter { !$0.isEmpty }
+                for entry in logEntries.reversed() {
+                    if entry.contains("Backup completed successfully") {
+                        break
+                    }
+                    if entry.contains("Backup Failed: Network drive inaccessible") {
+                        failureCount += 1
+                    }
+                }
+            } catch {
+                print("DEBUG: Failed to read log file for failure count: \(error)")
+            }
+        }
+        return failureCount
+    }
     
+    func logManualBackupFailure() {
+        logFailure()  // Reuse the same log failure function
+    }
     
     
     

@@ -1,23 +1,26 @@
 #!/bin/bash
 
 # Backup scheduling parameters
-scheduledBackupTime="11:09"
+scheduledBackupTime="09:15"
 rangeStart="07:00"
 rangeEnd="21:00"
 # How often the app should check if an rsync happened that day in seconds (3600 seconds = 1 hour)
-frequencyCheck="30"
+frequencyCheck="60"
 maxDayAttemptNotification=6
 
 # Define source directories
-#SOURCES=("$HOME/Pictures" "$HOME/Documents" "$HOME/Downloads")
-SOURCES=("$HOME/Pictures" "$HOME/Downloads")
+SOURCES=("$HOME/Pictures" "$HOME/Documents" "$HOME/Downloads" "$HOME/Desktop")
+#SOURCES=("$HOME/Documents" "$HOME/Downloads" "$HOME/Pictures")
+#SOURCES=("$HOME/Pictures" "$HOME/Downloads")
 #SOURCES=("$HOME/Pictures")
 
 # Define destination directory
 DEST="/Volumes/SFA-All/User Data/$(whoami)/"
+mkdir -p "$DEST" # Create destination directory if it doesn't exist
 
 # Log file
 LOG_FILE="$HOME/delorean.log"
+mkdir -p "$(dirname "$LOG_FILE")" # Create log file directory if it doesn't exist
 
 # Function to count failure attempts since the last successful backup
 count_failures_since_last_success() {

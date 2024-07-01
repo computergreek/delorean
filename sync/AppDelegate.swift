@@ -14,6 +14,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     var logFilePath = "\(NSHomeDirectory())/delorean.log" // Default value, will be overwritten by loadConfig()
     var sources: [String] = []
     var dest: String = ""
+    
+    var didRequestDirectoryAccess = false
 
     // MARK: - App Lifecycle
     func applicationDidFinishLaunching(_ aNotification: Notification) {
@@ -22,8 +24,55 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 
         UNUserNotificationCenter.current().delegate = self
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in }
+        
         loadConfig()  // This should be the only place where the timer starts
-        // Removed checkProlongedFailures from here to avoid immediate notification
+    }
+    
+    func requestAccessForDirectories() {
+        // Ensure network volume access prompt is shown first
+        let networkVolume = self.dest
+        print("DEBUG: Attempting to access network volume: \(networkVolume)")
+        let networkVolumeURL = URL(fileURLWithPath: networkVolume, isDirectory: true)
+        do {
+            let networkVolumeContents = try FileManager.default.contentsOfDirectory(at: networkVolumeURL, includingPropertiesForKeys: nil)
+            // Access the first file in the network volume to trigger the permission prompt
+            if let firstNetworkFile = networkVolumeContents.first(where: { !$0.hasDirectoryPath }) {
+                print("DEBUG: Accessing file: \(firstNetworkFile.path)")
+                let _ = try Data(contentsOf: firstNetworkFile)
+            } else {
+                print("DEBUG: No files found in network volume: \(networkVolume)")
+            }
+        } catch {
+            print("DEBUG: Failed to access network volume \(networkVolume): \(error)")
+        }
+
+        // Proceed to access other directories
+        for source in sources {
+            let trimmedSource = source.trimmingCharacters(in: .whitespacesAndNewlines)
+            print("DEBUG: Attempting to access directory: \(trimmedSource)")
+            let url = URL(fileURLWithPath: trimmedSource, isDirectory: true)
+            do {
+                // Check if the directory exists before trying to access its contents
+                var isDir: ObjCBool = false
+                if FileManager.default.fileExists(atPath: trimmedSource, isDirectory: &isDir), isDir.boolValue {
+                    print("DEBUG: Directory exists: \(trimmedSource)")
+                    let contents = try FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)
+                    // Access the first file in the directory to trigger the permission prompt
+                    if let firstFile = contents.first(where: { !$0.hasDirectoryPath }) {
+                        print("DEBUG: Accessing file: \(firstFile.path)")
+                        let _ = try Data(contentsOf: firstFile)
+                    } else {
+                        print("DEBUG: No files found in directory: \(trimmedSource)")
+                    }
+                } else {
+                    print("DEBUG: Directory does not exist or is not a directory: \(trimmedSource)")
+                }
+            } catch {
+                print("DEBUG: Failed to access directory \(trimmedSource): \(error)")
+            }
+            // Add a short delay to allow macOS to handle the prompts properly
+            Thread.sleep(forTimeInterval: 1)
+        }
     }
 
     @objc func backupDidStart(notification: Notification) {
@@ -61,6 +110,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
                     // Replace placeholders
                     value = value.replacingOccurrences(of: "$HOME", with: NSHomeDirectory())
                     value = value.replacingOccurrences(of: "$(whoami)", with: NSUserName())
+                    
+                    // Remove stray parentheses
+                    value = value.replacingOccurrences(of: "(", with: "").replacingOccurrences(of: ")", with: "")
 
                     switch key {
                         case "scheduledBackupTime":
@@ -90,7 +142,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
                     print("DEBUG: Loaded \(key) with value \(value)")
                 }
             }
-            print("DEBUG: loadConfig completed. Starting backup timer.")
+            print("DEBUG: loadConfig completed.")
+            // Request access to directories before starting the backup timer
+            if !self.didRequestDirectoryAccess {
+                self.didRequestDirectoryAccess = true
+                self.requestAccessForDirectories()
+            }
             self.startBackupTimer() // Ensure this is only called once
         }
     }

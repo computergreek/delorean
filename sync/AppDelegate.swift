@@ -239,28 +239,38 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
                     return
                 }
 
-                // Check if the current time is within the scheduled backup window
-                let timeFormatter = DateFormatter()
-                timeFormatter.dateFormat = "HH:mm"
-                timeFormatter.timeZone = TimeZone.current
+                // Ensure the network drive is accessible before sending overdue notification
+                let destPath = "/Volumes/SFA-All/User Data/\(NSUserName())"
+                let fileManager = FileManager.default
 
-                let currentTimeString = timeFormatter.string(from: currentDate)
-                let backupTimeString = "\(self.backupHour):\(self.backupMinute)"
-                let rangeEndString = self.rangeEnd
+                if !fileManager.fileExists(atPath: destPath) {
+                    print("DEBUG: Network drive is not accessible. Sending overdue notification.")
+                    
+                    // Check if the current time is within the scheduled backup window
+                    let timeFormatter = DateFormatter()
+                    timeFormatter.dateFormat = "HH:mm"
+                    timeFormatter.timeZone = TimeZone.current
 
-                guard let currentTime = timeFormatter.date(from: currentTimeString),
-                      let backupTime = timeFormatter.date(from: backupTimeString),
-                      let rangeEnd = timeFormatter.date(from: rangeEndString) else {
-                    print("DEBUG: There was an error parsing the date or time.")
-                    return
-                }
+                    let currentTimeString = timeFormatter.string(from: currentDate)
+                    let backupTimeString = "\(self.backupHour):\(self.backupMinute)"
+                    let rangeEndString = self.rangeEnd
 
-                if currentTime >= backupTime && currentTime <= rangeEnd {
-                    // Send overdue notification
-                    notifyUser(title: "Backup Overdue", informativeText: "It's been \(daysBetween) days since the files on your computer were last backed up.")
-                    lastOverdueNotificationDate = currentDate
+                    guard let currentTime = timeFormatter.date(from: currentTimeString),
+                          let backupTime = timeFormatter.date(from: backupTimeString),
+                          let rangeEnd = timeFormatter.date(from: rangeEndString) else {
+                        print("DEBUG: There was an error parsing the date or time.")
+                        return
+                    }
+
+                    if currentTime >= backupTime && currentTime <= rangeEnd {
+                        // Send overdue notification
+                        notifyUser(title: "Backup Overdue", informativeText: "It's been \(daysBetween) days since the files on your computer were last backed up.")
+                        lastOverdueNotificationDate = currentDate
+                    } else {
+                        print("DEBUG: Current time is outside the backup window.")
+                    }
                 } else {
-                    print("DEBUG: Current time is outside the backup window.")
+                    print("DEBUG: Network drive is accessible. No overdue notification needed.")
                 }
             }
         }

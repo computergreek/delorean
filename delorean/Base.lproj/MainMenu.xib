@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="22505" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" customObjectInstantitationMethod="direct">
+<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="23727" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" customObjectInstantitationMethod="direct">
     <dependencies>
         <deployment identifier="macosx"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="22505"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="23727"/>
     </dependencies>
     <objects>
         <customObject id="-2" userLabel="File's Owner" customClass="NSApplication"/>
@@ -12,9 +12,9 @@
                 <outlet property="delegate" destination="3DX-jI-6au" id="rit-y2-aJt"/>
             </connections>
         </customObject>
-        <customObject id="3DX-jI-6au" customClass="AppDelegate" customModule="sync" customModuleProvider="target"/>
+        <customObject id="3DX-jI-6au" customClass="AppDelegate" customModule="DeLorean" customModuleProvider="target"/>
         <customObject id="YLy-65-1bz" customClass="NSFontManager"/>
-        <customObject id="zNT-n7-GYd" customClass="StatusMenuController" customModule="sync" customModuleProvider="target">
+        <customObject id="zNT-n7-GYd" customClass="StatusMenuController" customModule="DeLorean" customModuleProvider="target">
             <connections>
                 <outlet property="abortBackupItem" destination="7na-V6-pnz" id="EMM-zj-Bfv"/>
                 <outlet property="backupInProgressItem" destination="z2v-DJ-uIr" id="Tbw-Nb-JIt"/>

@@ -15,12 +15,12 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		DDB0577621DD70A7002BB72A /* sync.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = sync.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DDB0577621DD70A7002BB72A /* DeLorean.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DeLorean.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DDB0577921DD70A7002BB72A /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		DDB0577B21DD70AA002BB72A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		DDB0577E21DD70AA002BB72A /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/MainMenu.xib; sourceTree = "<group>"; };
 		DDB0578021DD70AA002BB72A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		DDB0578121DD70AA002BB72A /* sync.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = sync.entitlements; sourceTree = "<group>"; };
+		DDB0578121DD70AA002BB72A /* delorean.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = delorean.entitlements; sourceTree = "<group>"; };
 		DDB0578721DD7DCC002BB72A /* StatusMenuController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusMenuController.swift; sourceTree = "<group>"; };
 		DDE4A3C8226BC235009B7305 /* sync_files.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = sync_files.sh; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -39,7 +39,7 @@
 		DDB0576D21DD70A7002BB72A = {
 			isa = PBXGroup;
 			children = (
-				DDB0577821DD70A7002BB72A /* sync */,
+				DDB0577821DD70A7002BB72A /* delorean */,
 				DDB0577721DD70A7002BB72A /* Products */,
 			);
 			sourceTree = "<group>";
@@ -47,12 +47,12 @@
 		DDB0577721DD70A7002BB72A /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				DDB0577621DD70A7002BB72A /* sync.app */,
+				DDB0577621DD70A7002BB72A /* DeLorean.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
-		DDB0577821DD70A7002BB72A /* sync */ = {
+		DDB0577821DD70A7002BB72A /* delorean */ = {
 			isa = PBXGroup;
 			children = (
 				DDE4A3C8226BC235009B7305 /* sync_files.sh */,
@@ -61,17 +61,17 @@
 				DDB0577D21DD70AA002BB72A /* MainMenu.xib */,
 				DDB0577B21DD70AA002BB72A /* Assets.xcassets */,
 				DDB0578021DD70AA002BB72A /* Info.plist */,
-				DDB0578121DD70AA002BB72A /* sync.entitlements */,
+				DDB0578121DD70AA002BB72A /* delorean.entitlements */,
 			);
-			path = sync;
+			path = delorean;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		DDB0577521DD70A7002BB72A /* sync */ = {
+		DDB0577521DD70A7002BB72A /* DeLorean */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = DDB0578421DD70AA002BB72A /* Build configuration list for PBXNativeTarget "sync" */;
+			buildConfigurationList = DDB0578421DD70AA002BB72A /* Build configuration list for PBXNativeTarget "DeLorean" */;
 			buildPhases = (
 				DDB0577221DD70A7002BB72A /* Sources */,
 				DDB0577321DD70A7002BB72A /* Frameworks */,
@@ -81,9 +81,9 @@
 			);
 			dependencies = (
 			);
-			name = sync;
+			name = DeLorean;
 			productName = sync;
-			productReference = DDB0577621DD70A7002BB72A /* sync.app */;
+			productReference = DDB0577621DD70A7002BB72A /* DeLorean.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -97,8 +97,8 @@
 					"Sync File",
 				);
 				LastSwiftUpdateCheck = 1010;
-				LastUpgradeCheck = 1520;
-				ORGANIZATIONNAME = "Jonas Drotleff";
+				LastUpgradeCheck = 1640;
+				ORGANIZATIONNAME = "";
 				TargetAttributes = {
 					DDB0577521DD70A7002BB72A = {
 						CreatedOnToolsVersion = 10.1;
@@ -106,7 +106,7 @@
 					};
 				};
 			};
-			buildConfigurationList = DDB0577121DD70A7002BB72A /* Build configuration list for PBXProject "sync" */;
+			buildConfigurationList = DDB0577121DD70A7002BB72A /* Build configuration list for PBXProject "DeLorean" */;
 			compatibilityVersion = "Xcode 9.3";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -119,7 +119,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				DDB0577521DD70A7002BB72A /* sync */,
+				DDB0577521DD70A7002BB72A /* DeLorean */,
 			);
 		};
 /* End PBXProject section */
@@ -286,20 +286,21 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = sync/sync.entitlements;
+				CODE_SIGN_ENTITLEMENTS = delorean/delorean.entitlements;
 				CODE_SIGN_IDENTITY = "-";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
-				INFOPLIST_FILE = sync/Info.plist;
+				INFOPLIST_FILE = delorean/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 12.4;
-				PRODUCT_BUNDLE_IDENTIFIER = de.jonas.sync;
+				MACOSX_DEPLOYMENT_TARGET = 13.5;
+				PRODUCT_BUNDLE_IDENTIFIER = ufemit.delorean;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_VERSION = 5.0;
@@ -310,20 +311,21 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = sync/sync.entitlements;
+				CODE_SIGN_ENTITLEMENTS = delorean/delorean.entitlements;
 				CODE_SIGN_IDENTITY = "-";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = "";
-				INFOPLIST_FILE = sync/Info.plist;
+				INFOPLIST_FILE = delorean/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 12.4;
-				PRODUCT_BUNDLE_IDENTIFIER = de.jonas.sync;
+				MACOSX_DEPLOYMENT_TARGET = 13.5;
+				PRODUCT_BUNDLE_IDENTIFIER = ufemit.delorean;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_VERSION = 5.0;
@@ -333,7 +335,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		DDB0577121DD70A7002BB72A /* Build configuration list for PBXProject "sync" */ = {
+		DDB0577121DD70A7002BB72A /* Build configuration list for PBXProject "DeLorean" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				DDB0578221DD70AA002BB72A /* Debug */,
@@ -342,7 +344,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		DDB0578421DD70AA002BB72A /* Build configuration list for PBXNativeTarget "sync" */ = {
+		DDB0578421DD70AA002BB72A /* Build configuration list for PBXNativeTarget "DeLorean" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				DDB0578521DD70AA002BB72A /* Debug */,

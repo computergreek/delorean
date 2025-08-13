@@ -10,11 +10,11 @@
 		</data>
 		<key>Resources/Assets.car</key>
 		<data>
-		hM6TVLaWY7fFCYLZam3so3xkJC4=
+		3+JpTARgLZSmiky5pFgxM0K2auA=
 		</data>
 		<key>Resources/Base.lproj/MainMenu.nib</key>
 		<data>
-		f153JShtLJjjDnTLpZjKqbIwDIo=
+		6BPVMx6HBE7469WYcgrgPLM8GlU=
 		</data>
 		<key>Resources/sync_files.sh</key>
 		<data>
@@ -23,6 +23,24 @@
 	</dict>
 	<key>files2</key>
 	<dict>
+		<key>MacOS/__preview.dylib</key>
+		<dict>
+			<key>cdhash</key>
+			<data>
+			7ygAz/rvvqu1Bdw/4VqX0AzO6po=
+			</data>
+			<key>requirement</key>
+			<string>cdhash H"ef2800cffaefbeabb505dc3fe15a97d00cceea9a"</string>
+		</dict>
+		<key>MacOS/sync.debug.dylib</key>
+		<dict>
+			<key>cdhash</key>
+			<data>
+			KI4gzdwP7f6DqBG5NaJk2J5cpZk=
+			</data>
+			<key>requirement</key>
+			<string>cdhash H"288e20cddc0fedfe83a811b935a264d89e5ca599"</string>
+		</dict>
 		<key>Resources/AppIcon.icns</key>
 		<dict>
 			<key>hash2</key>
@@ -34,14 +52,14 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			rnh+5NFJSnb2lhNmiiC2A40HtHxgY41JBrQeEBbj3/c=
+			XKbmRX5hUDbvMr2ZXFNZa1BKJN0qXW+EXy+60qe2BqQ=
 			</data>
 		</dict>
 		<key>Resources/Base.lproj/MainMenu.nib</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			lDC9tn4liyzD1cW10xE5FXSEiLbS3vdsOqnCZJEBpYs=
+			8aM+CRq6uoKUwXe2c2lPAmOnfumK7OT7dv34YeKLbP8=
 			</data>
 		</dict>
 		<key>Resources/sync_files.sh</key>

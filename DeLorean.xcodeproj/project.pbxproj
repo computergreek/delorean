@@ -98,7 +98,7 @@
 				);
 				LastSwiftUpdateCheck = 1010;
 				LastUpgradeCheck = 1640;
-				ORGANIZATIONNAME = "Jonas Drotleff";
+				ORGANIZATIONNAME = "";
 				TargetAttributes = {
 					DDB0577521DD70A7002BB72A = {
 						CreatedOnToolsVersion = 10.1;
@@ -300,7 +300,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.5;
-				PRODUCT_BUNDLE_IDENTIFIER = ufemit;
+				PRODUCT_BUNDLE_IDENTIFIER = ufemit.delorean;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_VERSION = 5.0;
@@ -325,7 +325,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.5;
-				PRODUCT_BUNDLE_IDENTIFIER = ufemit;
+				PRODUCT_BUNDLE_IDENTIFIER = ufemit.delorean;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_VERSION = 5.0;

@@ -120,8 +120,18 @@ class StatusMenuController: NSObject {
         guard let task = backupTask, isRunning else {
             return
         }
+        
         isUserInitiatedAbort = true
+        
+        // Kill any currently running rsync process first
+        let killRsync = Process()
+        killRsync.launchPath = "/usr/bin/killall"
+        killRsync.arguments = ["rsync"]
+        try? killRsync.run()
+        
+        // Then terminate the bash script
         task.terminate()
+        
         notifyUser(title: "Backup Aborted", informativeText: "The backup process has been cancelled.")
     }
     

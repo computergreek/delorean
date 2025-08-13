@@ -64,9 +64,11 @@ Back up only Documents and Pictures to a different network drive at 6 PM:
 
 ## Creating a PKG from the DeLorean.app file
 Navigate to where your DeLorean.app is located
+
 `cd /path/to/your/DeLorean.app/..`
 
 Create the package
+
 `pkgbuild --root . --identifier ufemit.delorean --version 1.0 --install-location /Applications UF-EM-DeLorean-Backup.pkg`
 
 ## License

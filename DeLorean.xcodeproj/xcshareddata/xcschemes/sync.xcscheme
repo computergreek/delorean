@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "1520"
+   LastUpgradeVersion = "1640"
    version = "1.7">
    <BuildAction
       parallelizeBuildables = "YES"
@@ -17,7 +17,7 @@
                BlueprintIdentifier = "DDB0577521DD70A7002BB72A"
                BuildableName = "DeLorean.app"
                BlueprintName = "DeLorean"
-               ReferencedContainer = "container:sync.xcodeproj">
+               ReferencedContainer = "container:DeLorean.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -46,7 +46,7 @@
             BlueprintIdentifier = "DDB0577521DD70A7002BB72A"
             BuildableName = "DeLorean.app"
             BlueprintName = "DeLorean"
-            ReferencedContainer = "container:sync.xcodeproj">
+            ReferencedContainer = "container:DeLorean.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -63,7 +63,7 @@
             BlueprintIdentifier = "DDB0577521DD70A7002BB72A"
             BuildableName = "DeLorean.app"
             BlueprintName = "DeLorean"
-            ReferencedContainer = "container:sync.xcodeproj">
+            ReferencedContainer = "container:DeLorean.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

@@ -74,9 +74,9 @@ class StatusMenuController: NSObject {
                 guard let self = self else { return }
                 let success = process.terminationStatus == 0
                 if success {
-                    self.notifyUser(title: "Sync Completed", informativeText: "Your files have been successfully backed up.")
+                    self.notifyUser(title: "Backup Completed", informativeText: "Your files have been successfully backed up.")
                 } else if !self.isUserInitiatedAbort {
-                    self.notifyUser(title: "Sync Failed", informativeText: "There was an issue with the backup process.")
+                    self.notifyUser(title: "Backup Failed", informativeText: "There was an issue with the backup process.")
                 }
                 self.isUserInitiatedAbort = false
                 NotificationCenter.default.post(name: .backupDidFinish, object: nil)
@@ -135,7 +135,7 @@ class StatusMenuController: NSObject {
     // MARK: - Dialogs and User Notifications
     func showQuitWarning() -> Bool {
         let alert = NSAlert()
-        alert.messageText = "Sync is running"
+        alert.messageText = "DeLorean is running"
         alert.informativeText = "A backup is currently in progress. Are you sure you want to quit?"
         alert.alertStyle = .warning
         alert.addButton(withTitle: "Quit Anyway")

@@ -63,7 +63,7 @@ Back up only Documents and Pictures to a different network drive at 6 PM:
 4. Build and run
 
 ## Creating a PKG from the DeLorean.app file
-Navigate to where your DeLorean.app is located
+Navigate to where your DeLorean.app is located in Terminal
 
 `cd /path/to/your/DeLorean.app/..`
 

@@ -15,8 +15,8 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "DDB0577521DD70A7002BB72A"
-               BuildableName = "sync.app"
-               BlueprintName = "sync"
+               BuildableName = "DeLorean.app"
+               BlueprintName = "DeLorean"
                ReferencedContainer = "container:sync.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -44,8 +44,8 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "DDB0577521DD70A7002BB72A"
-            BuildableName = "sync.app"
-            BlueprintName = "sync"
+            BuildableName = "DeLorean.app"
+            BlueprintName = "DeLorean"
             ReferencedContainer = "container:sync.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -61,8 +61,8 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "DDB0577521DD70A7002BB72A"
-            BuildableName = "sync.app"
-            BlueprintName = "sync"
+            BuildableName = "DeLorean.app"
+            BlueprintName = "DeLorean"
             ReferencedContainer = "container:sync.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

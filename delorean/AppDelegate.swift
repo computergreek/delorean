@@ -30,10 +30,33 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     }
 
     func applicationWillTerminate(_ aNotification: Notification) {
+        print("DEBUG: applicationWillTerminate called")
         backupTimer?.invalidate()
-        if let task = StatusMenuController.shared.backupTask, task.isRunning {
+        
+        // Always try to kill rsync processes, regardless of task state
+        print("DEBUG: Killing all rsync processes")
+        let killRsync = Process()
+        killRsync.launchPath = "/usr/bin/killall"
+        killRsync.arguments = ["rsync"]
+        try? killRsync.run()
+        
+        // Also kill any bash processes running our script
+        let killBash = Process()
+        killBash.launchPath = "/usr/bin/pkill"
+        killBash.arguments = ["-f", "sync_files.sh"]
+        try? killBash.run()
+        
+        // Try to terminate the task if it exists
+        if let task = StatusMenuController.shared.backupTask {
+            print("DEBUG: Found backup task, terminating")
             task.terminate()
+        } else {
+            print("DEBUG: No backup task reference found")
         }
+        
+        // Give processes time to die
+        Thread.sleep(forTimeInterval: 1.0)
+        print("DEBUG: Cleanup complete")
     }
 
     // MARK: - Directory Access

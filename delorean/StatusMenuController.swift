@@ -1,5 +1,6 @@
 import Cocoa
 import UserNotifications
+import QuartzCore
 
 extension Notification.Name {
     static let backupDidStart = Notification.Name("backupDidStart")
@@ -19,6 +20,9 @@ class StatusMenuController: NSObject {
     @IBOutlet weak var abortBackupItem: NSMenuItem!
     @IBOutlet weak var backupInProgressItem: NSMenuItem!
     @IBOutlet weak var lastBackupItem: NSMenuItem!
+    private var spinTimer: Timer?
+    private var currentRotation: CGFloat = 0
+    private var originalIcon: NSImage?
     
     let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     var isRunning: Bool = false
@@ -42,6 +46,7 @@ class StatusMenuController: NSObject {
     func setupMenuIcon() {
         let icon = NSImage(named: NSImage.refreshFreestandingTemplateName)
         icon?.isTemplate = true
+        originalIcon = icon?.copy() as? NSImage // Store original
         statusItem.button?.image = icon
         statusItem.menu = statusMenu
     }
@@ -91,13 +96,72 @@ class StatusMenuController: NSObject {
         }
     }
     
+    private func startSpinningIcon() {
+        stopSpinningIcon()
+        
+        spinTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { _ in
+            self.currentRotation -= CGFloat.pi / 16 // Back to what was working
+            
+            DispatchQueue.main.async {
+                if let originalImage = self.originalIcon {
+                    let rotatedImage = self.rotateImage(originalImage, by: self.currentRotation)
+                    rotatedImage.isTemplate = true
+                    self.statusItem.button?.image = rotatedImage
+                }
+            }
+        }
+    }
+    
+    private func stopSpinningIcon() {
+        spinTimer?.invalidate()
+        spinTimer = nil
+        currentRotation = 0
+        
+        DispatchQueue.main.async {
+            if let originalImage = self.originalIcon {
+                originalImage.isTemplate = true
+                self.statusItem.button?.image = originalImage
+            }
+        }
+    }
+    
+    // Optimized rotation to minimize pulsing
+    private func rotateImage(_ image: NSImage, by angle: CGFloat) -> NSImage {
+        let size = image.size
+        let rotatedImage = NSImage(size: size)
+        
+        rotatedImage.lockFocus()
+        
+        // High quality rendering
+        if let context = NSGraphicsContext.current {
+            context.imageInterpolation = .high
+            context.shouldAntialias = true
+        }
+        
+        // Transform around center
+        let transform = NSAffineTransform()
+        transform.translateX(by: size.width / 2, yBy: size.height / 2)
+        transform.rotate(byRadians: angle)
+        transform.translateX(by: -size.width / 2, yBy: -size.height / 2)
+        transform.concat()
+        
+        // Draw image - simple approach
+        image.draw(at: .zero, from: .zero, operation: .sourceOver, fraction: 1.0)
+        
+        rotatedImage.unlockFocus()
+        return rotatedImage
+    }
+    
     @objc func backupDidStart() {
+        print("DEBUG: backupDidStart called")
         isRunning = true
+        startSpinningIcon()
         updateUIForStateChange()
     }
     
     @objc func backupDidFinish() {
         isRunning = false
+        stopSpinningIcon()
         updateUIForStateChange()
     }
     

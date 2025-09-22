@@ -3,6 +3,7 @@ import UserNotifications
 
 @NSApplicationMain
 class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
+    var statusMenuController: StatusMenuController?
     var isBackupRunning = false
     var backupTimer: Timer?
     var backupHour = ""

@@ -10,7 +10,7 @@
 		</data>
 		<key>Resources/Assets.car</key>
 		<data>
-		m9tQXFRTfO7EhVW7hMbc0B4xaVw=
+		uvGtAdBCzpXVmpdP9rkp6foIekc=
 		</data>
 		<key>Resources/Base.lproj/MainMenu.nib</key>
 		<data>
@@ -18,29 +18,11 @@
 		</data>
 		<key>Resources/sync_files.sh</key>
 		<data>
-		rhzChK+E33lmHt8qmzy97nW+wjg=
+		Tv8yrgHB2zXhW+V3A8P9NDKU3jk=
 		</data>
 	</dict>
 	<key>files2</key>
 	<dict>
-		<key>MacOS/DeLorean.debug.dylib</key>
-		<dict>
-			<key>cdhash</key>
-			<data>
-			caJxB06G6PwM7idsIlRYitUk9as=
-			</data>
-			<key>requirement</key>
-			<string>cdhash H"71a271074e86e8fc0cee276c2254588ad524f5ab"</string>
-		</dict>
-		<key>MacOS/__preview.dylib</key>
-		<dict>
-			<key>cdhash</key>
-			<data>
-			G3LOftErQmGlOMearRiijdtqvVU=
-			</data>
-			<key>requirement</key>
-			<string>cdhash H"1b72ce7ed12b4261a538c79aad18a28ddb6abd55"</string>
-		</dict>
 		<key>Resources/AppIcon.icns</key>
 		<dict>
 			<key>hash2</key>
@@ -52,7 +34,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			UeNrT53OFJmCBl+Lrckz66tHnTv09bJiwvVznwizuGU=
+			GGklPQR/9WIf43DmkET1g21xvKvNcIFNnmb81pYX3zA=
 			</data>
 		</dict>
 		<key>Resources/Base.lproj/MainMenu.nib</key>
@@ -66,7 +48,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			L93RAKFHJKlXcGprwlFp3Er4+eiyHu2KB3RCUi6VXqw=
+			hWfEmp13vU2QchqhWV5tqVfJDO68DvPLwafODUVhFUA=
 			</data>
 		</dict>
 	</dict>

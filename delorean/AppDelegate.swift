@@ -24,10 +24,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         NotificationCenter.default.addObserver(self, selector: #selector(backupDidFinish(notification:)), name: .backupDidFinish, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(handleManualBackupRequest), name: .requestManualBackup, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(handleUserAbort), name: .userDidAbortBackup, object: nil)
-
         UNUserNotificationCenter.current().delegate = self
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in }
         loadConfig()
+        
+        // Simple solution: use the shared instance (XIB will set it up)
+        statusMenuController = StatusMenuController.shared
     }
 
     func applicationWillTerminate(_ aNotification: Notification) {
@@ -47,8 +49,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         killBash.arguments = ["-f", "sync_files.sh"]
         try? killBash.run()
         
+        // Create abort flag file
+        let abortFlagPath = NSHomeDirectory() + "/delorean_abort.flag"
+        FileManager.default.createFile(atPath: abortFlagPath, contents: nil, attributes: nil)
+
         // Try to terminate the task if it exists
-        if let task = StatusMenuController.shared.backupTask {
+        if let task = statusMenuController?.backupTask {
             print("DEBUG: Found backup task, terminating")
             task.terminate()
         } else {

@@ -98,12 +98,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     }
 
     @objc private func handleManualBackupRequest() {
-        if !FileManager.default.fileExists(atPath: dest) {
-            logFailure()
-            notifyUser(title: "Backup Failed", informativeText: "Network drive is not accessible.")
+        guard let scriptPath = Bundle.main.path(forResource: "sync_files", ofType: "sh") else {
+            print("DEBUG: Failed to locate sync_files.sh")
+            notifyUser(title: "Error", informativeText: "Could not locate backup script.")
             return
         }
-        guard let scriptPath = Bundle.main.path(forResource: "sync_files", ofType: "sh") else { return }
+        
+        print("DEBUG: Starting backup with script: \(scriptPath)")
         NotificationCenter.default.post(name: .StartBackup, object: nil, userInfo: ["scriptPath": scriptPath])
     }
 

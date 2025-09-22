@@ -77,12 +77,21 @@ class StatusMenuController: NSObject {
         backupTask?.terminationHandler = { [weak self] process in
             DispatchQueue.main.async {
                 guard let self = self else { return }
-                let success = process.terminationStatus == 0
-                if success {
-                    self.notifyUser(title: "Backup Completed", informativeText: "Your files have been successfully backed up.")
-                } else if !self.isUserInitiatedAbort {
-                    self.notifyUser(title: "Backup Failed", informativeText: "There was an issue with the backup process.")
+
+                // This is the improved logic.
+                if self.isUserInitiatedAbort {
+                    // If the user aborted, we do nothing. The "Backup Aborted"
+                    // notification was already sent.
+                } else {
+                    // Otherwise, we check for normal success or failure.
+                    let success = process.terminationStatus == 0
+                    if success {
+                        self.notifyUser(title: "Backup Completed", informativeText: "Your files have been successfully backed up.")
+                    } else {
+                        self.notifyUser(title: "Backup Failed", informativeText: "There was an issue with the backup process.")
+                    }
                 }
+                
                 self.isUserInitiatedAbort = false
                 NotificationCenter.default.post(name: .backupDidFinish, object: nil)
             }

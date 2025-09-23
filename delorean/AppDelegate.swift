@@ -135,43 +135,109 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             print("Failed to locate sync_files.sh")
             return
         }
-        let command = "grep '=' \(scriptPath) | grep -v '^#' | tr -d '\"'"
-        executeShellCommand(command) { output in
-            output.forEach { line in
-                let components = line.split(separator: "=", maxSplits: 1).map { String($0) }
-                if components.count == 2 {
-                    let key = components[0].trimmingCharacters(in: .whitespaces)
-                    var value = components[1].trimmingCharacters(in: .whitespaces)
-
-                    value = value.replacingOccurrences(of: "$HOME", with: NSHomeDirectory())
-                    value = value.replacingOccurrences(of: "$(whoami)", with: NSUserName())
-                    value = value.replacingOccurrences(of: "(", with: "").replacingOccurrences(of: ")", with: "")
-
-                    switch key {
-                        case "scheduledBackupTime":
-                            let timeComponents = value.split(separator: ":").map { String($0) }
-                            if timeComponents.count == 2 {
-                                self.backupHour = timeComponents[0]
-                                self.backupMinute = timeComponents[1]
-                            }
-                        case "rangeStart": self.rangeStart = value
-                        case "rangeEnd": self.rangeEnd = value
-                        case "frequencyCheck": self.frequency = TimeInterval(value) ?? 3600
-                        case "maxDayAttemptNotification": self.maxDayAttemptNotification = Int(value) ?? 6
-                        case "SOURCES": self.sources = value.split(separator: " ").map { String($0) }
-                        case "DEST": self.dest = value
-                        case "LOG_FILE": self.logFilePath = value
-                        default: break
+        
+        // Read file directly instead of using shell commands
+        guard let scriptContent = try? String(contentsOfFile: scriptPath) else {
+            print("Failed to read sync_files.sh")
+            return
+        }
+        
+        let lines = scriptContent.components(separatedBy: .newlines)
+        
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            
+            // Skip comments and empty lines
+            if trimmed.hasPrefix("#") || trimmed.isEmpty || !trimmed.contains("=") {
+                continue
+            }
+            
+            let components = trimmed.split(separator: "=", maxSplits: 1).map { String($0) }
+            if components.count == 2 {
+                let key = components[0].trimmingCharacters(in: .whitespaces)
+                let rawValue = components[1].trimmingCharacters(in: .whitespaces)
+                
+                switch key {
+                case "scheduledBackupTime":
+                    let value = expandShellVariables(rawValue.trimmingCharacters(in: CharacterSet(charactersIn: "\"")))
+                    let timeComponents = value.split(separator: ":").map { String($0) }
+                    if timeComponents.count == 2 {
+                        self.backupHour = timeComponents[0]
+                        self.backupMinute = timeComponents[1]
                     }
+                case "rangeStart":
+                    self.rangeStart = expandShellVariables(rawValue.trimmingCharacters(in: CharacterSet(charactersIn: "\"")))
+                case "rangeEnd":
+                    self.rangeEnd = expandShellVariables(rawValue.trimmingCharacters(in: CharacterSet(charactersIn: "\"")))
+                case "frequencyCheck":
+                    let value = expandShellVariables(rawValue.trimmingCharacters(in: CharacterSet(charactersIn: "\"")))
+                    self.frequency = TimeInterval(value) ?? 3600
+                case "maxDayAttemptNotification":
+                    let value = expandShellVariables(rawValue.trimmingCharacters(in: CharacterSet(charactersIn: "\"")))
+                    self.maxDayAttemptNotification = Int(value) ?? 6
+                case "SOURCES":
+                    self.sources = parseShellArray(rawValue)
+                case "DEST":
+                    self.dest = expandShellVariables(rawValue.trimmingCharacters(in: CharacterSet(charactersIn: "\"")))
+                case "LOG_FILE":
+                    self.logFilePath = expandShellVariables(rawValue.trimmingCharacters(in: CharacterSet(charactersIn: "\"")))
+                default:
+                    break
                 }
             }
-            if !self.didRequestDirectoryAccess {
-                self.didRequestDirectoryAccess = true
-                self.requestAccessForDirectories()
-            }
-            self.startBackupTimer()
-            self.updateLastBackupStatus()
         }
+        
+        if !self.didRequestDirectoryAccess {
+            self.didRequestDirectoryAccess = true
+            self.requestAccessForDirectories()
+        }
+        self.startBackupTimer()
+        self.updateLastBackupStatus()
+    }
+
+    // Helper function to expand shell variables
+    private func expandShellVariables(_ value: String) -> String {
+        return value
+            .replacingOccurrences(of: "$HOME", with: NSHomeDirectory())
+            .replacingOccurrences(of: "$(whoami)", with: NSUserName())
+    }
+
+    // Helper function to properly parse bash arrays
+    private func parseShellArray(_ rawValue: String) -> [String] {
+        let trimmed = rawValue.trimmingCharacters(in: .whitespaces)
+        
+        // Handle array format: ("item1" "item2" "item3")
+        if trimmed.hasPrefix("(") && trimmed.hasSuffix(")") {
+            let arrayContent = String(trimmed.dropFirst().dropLast()).trimmingCharacters(in: .whitespaces)
+            
+            var sources: [String] = []
+            var current = ""
+            var inQuotes = false
+            
+            for char in arrayContent {
+                switch char {
+                case "\"":
+                    inQuotes.toggle()
+                case " " where !inQuotes:
+                    if !current.isEmpty {
+                        sources.append(expandShellVariables(current))
+                        current = ""
+                    }
+                default:
+                    current.append(char)
+                }
+            }
+            
+            // Don't forget the last item
+            if !current.isEmpty {
+                sources.append(expandShellVariables(current))
+            }
+            
+            return sources
+        }
+        
+        // Fallback for non-array format
+        return [expandShellVariables(trimmed.trimmingCharacters(in: CharacterSet(charactersIn: "\"")))]
     }
 
     private func startBackupTimer() {

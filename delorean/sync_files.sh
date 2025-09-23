@@ -5,7 +5,7 @@ scheduledBackupTime="09:15"
 rangeStart="07:00"
 rangeEnd="21:00"
 # How often the app should check if an rsync happened that day in seconds (3600 seconds = 1 hour)
-frequencyCheck="300"
+frequencyCheck="60"
 maxDayAttemptNotification=6
 
 # Define source directories
@@ -60,26 +60,37 @@ EXCLUDES=(--exclude='Pictures/Photos Library.photoslibrary' --exclude='.DS_Store
 # Initialize success flag
 overall_success=true
 
-# Perform backup for each source directory
-for SOURCE in "${SOURCES[@]}"; do
-    # Check for abort flag before starting each directory
+# Function to check for abort flag
+check_abort() {
     if [ -f "$ABORT_FLAG" ]; then
         echo "$(date '+%Y-%m-%d %H:%M:%S') - Backup Failed: User aborted" >> "$LOG_FILE"
         rm -f "$ABORT_FLAG"
         cp "$LOG_FILE" "$DEST/delorean.log" 2>/dev/null || true
         exit 0
     fi
+}
+
+# Perform backup for each source directory
+for SOURCE in "${SOURCES[@]}"; do
+    check_abort  # Check before starting each directory
     
-    rsync "${OPTIONS[@]}" "${EXCLUDES[@]}" "$SOURCE" "$DEST"
+    # Start rsync in background so we can monitor for abort
+    rsync "${OPTIONS[@]}" "${EXCLUDES[@]}" "$SOURCE" "$DEST" &
+    RSYNC_PID=$!
     
-    if [ $? -ne 0 ]; then
-        # Check if failure was due to abort
-        if [ -f "$ABORT_FLAG" ]; then
-            echo "$(date '+%Y-%m-%d %H:%M:%S') - Backup Failed: User aborted" >> "$LOG_FILE"
-            rm -f "$ABORT_FLAG"
-            cp "$LOG_FILE" "$DEST/delorean.log" 2>/dev/null || true
-            exit 0
-        fi
+    # Monitor the rsync process and check for abort every 2 seconds
+    while kill -0 "$RSYNC_PID" 2>/dev/null; do
+        check_abort
+        sleep 2
+    done
+    
+    # Wait for rsync to complete and get its exit status
+    wait "$RSYNC_PID"
+    RSYNC_EXIT_CODE=$?
+    
+    check_abort  # Final check after rsync completes
+    
+    if [ $RSYNC_EXIT_CODE -ne 0 ]; then
         overall_success=false
     fi
 done

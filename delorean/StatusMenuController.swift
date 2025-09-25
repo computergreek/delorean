@@ -107,11 +107,11 @@ class StatusMenuController: NSObject {
     
     private func startSpinningIcon() {
         stopSpinningIcon()
-        
-        spinTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { _ in
-            self.currentRotation -= CGFloat.pi / 16 // Back to what was working
-            
-            DispatchQueue.main.async {
+        spinTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            self.currentRotation -= CGFloat.pi / 16
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
                 if let originalImage = self.originalIcon {
                     let rotatedImage = self.rotateImage(originalImage, by: self.currentRotation)
                     rotatedImage.isTemplate = true
@@ -195,17 +195,13 @@ class StatusMenuController: NSObject {
         }
         isUserInitiatedAbort = true
         
-        // Create abort flag file
+        // Create abort flag for bash script to see
         let abortFlagPath = NSHomeDirectory() + "/delorean_abort.flag"
         FileManager.default.createFile(atPath: abortFlagPath, contents: nil, attributes: nil)
         
-        // Kill any currently running rsync process first
-        let killRsync = Process()
-        killRsync.launchPath = "/usr/bin/killall"
-        killRsync.arguments = ["rsync"]
-        try? killRsync.run()
-        // Then terminate the bash script
+        // Terminate the bash script (which will kill the single rsync process)
         task.terminate()
+        
         notifyUser(title: "Backup Aborted", informativeText: "The backup process has been cancelled.")
     }
     

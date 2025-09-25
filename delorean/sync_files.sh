@@ -70,30 +70,28 @@ check_abort() {
     fi
 }
 
-# Perform backup for each source directory
-for SOURCE in "${SOURCES[@]}"; do
-    check_abort  # Check before starting each directory
-    
-    # Start rsync in background so we can monitor for abort
-    rsync "${OPTIONS[@]}" "${EXCLUDES[@]}" "$SOURCE" "$DEST" &
-    RSYNC_PID=$!
-    
-    # Monitor the rsync process and check for abort every 2 seconds
-    while kill -0 "$RSYNC_PID" 2>/dev/null; do
-        check_abort
-        sleep 2
-    done
-    
-    # Wait for rsync to complete and get its exit status
-    wait "$RSYNC_PID"
-    RSYNC_EXIT_CODE=$?
-    
-    check_abort  # Final check after rsync completes
-    
-    if [ $RSYNC_EXIT_CODE -ne 0 ]; then
-        overall_success=false
-    fi
+# Run single rsync command for all sources at once
+check_abort  # Check before starting
+
+# Start single rsync with ALL sources in one command
+rsync "${OPTIONS[@]}" "${EXCLUDES[@]}" "${SOURCES[@]}" "$DEST" &
+RSYNC_PID=$!
+
+# Monitor the single rsync process and check for abort every 2 seconds
+while kill -0 "$RSYNC_PID" 2>/dev/null; do
+    check_abort
+    sleep 2
 done
+
+# Wait for rsync to complete and get its exit status
+wait "$RSYNC_PID"
+RSYNC_EXIT_CODE=$?
+
+check_abort  # Final check after rsync completes
+
+if [ $RSYNC_EXIT_CODE -ne 0 ]; then
+    overall_success=false
+fi
 
 # Clean up abort flag at end
 rm -f "$ABORT_FLAG"

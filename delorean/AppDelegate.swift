@@ -36,31 +36,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         print("DEBUG: applicationWillTerminate called")
         backupTimer?.invalidate()
         
-        // Create abort flag FIRST to let the bash script handle cleanup gracefully
+        // Create abort flag and terminate task
         let abortFlagPath = NSHomeDirectory() + "/delorean_abort.flag"
         FileManager.default.createFile(atPath: abortFlagPath, contents: nil, attributes: nil)
-        print("DEBUG: Created abort flag")
         
-        // Give the bash script time to see the flag and cleanup gracefully
-        if statusMenuController?.backupTask != nil {
-            print("DEBUG: Waiting for backup script to handle abort flag...")
-            Thread.sleep(forTimeInterval: 3.0)  // Give script time to see abort flag
-        }
-        
-        // If processes are still running after graceful period, force kill them
-        print("DEBUG: Force killing any remaining processes")
-        let killRsync = Process()
-        killRsync.launchPath = "/usr/bin/killall"
-        killRsync.arguments = ["rsync"]
-        try? killRsync.run()
-        
-        let killBash = Process()
-        killBash.launchPath = "/usr/bin/pkill"
-        killBash.arguments = ["-f", "sync_files.sh"]
-        try? killBash.run()
-        
-        // Terminate the task
+        // Terminate the backup task
         statusMenuController?.backupTask?.terminate()
+        
+        // Brief wait for clean shutdown
+        Thread.sleep(forTimeInterval: 1.0)
         
         print("DEBUG: Cleanup complete")
     }

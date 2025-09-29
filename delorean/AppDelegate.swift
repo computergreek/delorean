@@ -1,6 +1,6 @@
 import Cocoa
 import UserNotifications
-
+ 
 @NSApplicationMain
 class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     var statusMenuController: StatusMenuController?
@@ -17,7 +17,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     var dest: String = ""
     var didRequestDirectoryAccess = false
     var lastOverdueNotificationDate: Date?
-
+ 
     // MARK: - App Lifecycle
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         NotificationCenter.default.addObserver(self, selector: #selector(backupDidStart), name: .backupDidStart, object: nil)
@@ -31,14 +31,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         // Simple solution: use the shared instance (XIB will set it up)
         statusMenuController = StatusMenuController.shared
     }
-
+ 
     func applicationWillTerminate(_ aNotification: Notification) {
         print("DEBUG: applicationWillTerminate called")
         backupTimer?.invalidate()
-        
-        // Create abort flag and terminate task
-        let abortFlagPath = NSHomeDirectory() + "/delorean_abort.flag"
-        FileManager.default.createFile(atPath: abortFlagPath, contents: nil, attributes: nil)
         
         // Terminate the backup task
         statusMenuController?.backupTask?.terminate()
@@ -48,7 +44,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         
         print("DEBUG: Cleanup complete")
     }
-
+ 
     // MARK: - Directory Access
     func requestAccessForDirectories() {
         let networkVolume = self.dest
@@ -58,7 +54,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         } catch {
             print("DEBUG: Failed to access network volume \(networkVolume): \(error)")
         }
-
+ 
         for source in sources {
             let trimmedSource = source.trimmingCharacters(in: .whitespacesAndNewlines)
             let url = URL(fileURLWithPath: trimmedSource, isDirectory: true)
@@ -69,17 +65,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             }
         }
     }
-
+ 
     // MARK: - Notification Handlers
     @objc func backupDidStart(notification: Notification) {
         isBackupRunning = true
     }
-
+ 
     @objc func backupDidFinish(notification: Notification) {
         isBackupRunning = false
         updateLastBackupStatus()
     }
-
+ 
     @objc private func handleManualBackupRequest() {
         guard let scriptPath = Bundle.main.path(forResource: "sync_files", ofType: "sh") else {
             print("DEBUG: Failed to locate sync_files.sh")
@@ -90,15 +86,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         print("DEBUG: Starting backup with script: \(scriptPath)")
         NotificationCenter.default.post(name: .StartBackup, object: nil, userInfo: ["scriptPath": scriptPath])
     }
-
+ 
     @objc private func handleUserAbort() {
         isBackupRunning = false
         NotificationCenter.default.post(name: .backupDidFinish, object: nil)
-
+ 
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
         let logEntry = "\(dateFormatter.string(from: Date())) - Backup Failed: User aborted\n"
-
+ 
         do {
             if let fileHandle = FileHandle(forWritingAtPath: logFilePath) {
                 fileHandle.seekToEndOfFile()
@@ -112,7 +108,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         }
         updateLastBackupStatus()
     }
-
+ 
     // MARK: - Backup Configuration and Schedule
     private func loadConfig() {
         guard let scriptPath = Bundle.main.path(forResource: "sync_files", ofType: "sh") else {
@@ -178,14 +174,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         self.startBackupTimer()
         self.updateLastBackupStatus()
     }
-
+ 
     // Helper function to expand shell variables
     private func expandShellVariables(_ value: String) -> String {
         return value
             .replacingOccurrences(of: "$HOME", with: NSHomeDirectory())
             .replacingOccurrences(of: "$(whoami)", with: NSUserName())
     }
-
+ 
     // Helper function to properly parse bash arrays
     private func parseShellArray(_ rawValue: String) -> [String] {
         let trimmed = rawValue.trimmingCharacters(in: .whitespaces)
@@ -223,21 +219,21 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         // Fallback for non-array format
         return [expandShellVariables(trimmed.trimmingCharacters(in: CharacterSet(charactersIn: "\"")))]
     }
-
+ 
     private func startBackupTimer() {
         backupTimer?.invalidate()
         backupTimer = Timer.scheduledTimer(timeInterval: frequency, target: self, selector: #selector(performScheduledChecks), userInfo: nil, repeats: true)
         performScheduledChecks()
     }
-
+ 
     @objc private func performScheduledChecks() {
         checkBackupSchedule()
         checkProlongedFailures()
     }
-
+ 
     @objc private func checkBackupSchedule() {
         guard !isBackupRunning else { return }
-
+ 
         let timeFormatter = DateFormatter()
         timeFormatter.dateFormat = "HH:mm"
         let logDateFormatter = DateFormatter()
@@ -245,31 +241,31 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         
         let currentTimeString = timeFormatter.string(from: Date())
         let currentDateString = logDateFormatter.string(from: Date()).prefix(10)
-
+ 
         guard let currentTime = timeFormatter.date(from: currentTimeString),
               let rangeEndTime = timeFormatter.date(from: self.rangeEnd),
               let backupTime = timeFormatter.date(from: "\(self.backupHour):\(self.backupMinute)") else {
             return
         }
-
+ 
         if currentTime < backupTime || currentTime > rangeEndTime { return }
-
+ 
         var logContent = ""
         if FileManager.default.fileExists(atPath: logFilePath) {
             logContent = (try? String(contentsOfFile: logFilePath, encoding: .utf8)) ?? ""
         }
-
+ 
         if logContent.isEmpty {
             isBackupRunning = true
             NotificationCenter.default.post(name: .StartBackup, object: nil, userInfo: ["scriptPath": Bundle.main.path(forResource: "sync_files", ofType: "sh")!])
             return
         }
-
+ 
         let logEntries = logContent.components(separatedBy: .newlines).filter { !$0.isEmpty }
         let successfulBackupsToday = logEntries.contains { $0.contains("Backup completed successfully") && $0.contains(currentDateString) }
         
         if successfulBackupsToday { return }
-
+ 
         if !FileManager.default.fileExists(atPath: self.dest) {
             let failedBackupsToday = logEntries.contains { $0.contains("Backup Failed: Network drive inaccessible") && $0.contains(currentDateString) }
             if !failedBackupsToday { logFailure() }
@@ -279,7 +275,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         isBackupRunning = true
         NotificationCenter.default.post(name: .StartBackup, object: nil, userInfo: ["scriptPath": Bundle.main.path(forResource: "sync_files", ofType: "sh")!])
     }
-
+ 
     // MARK: - Logging and Status
     func updateLastBackupStatus() {
         var title = "Last Backup: No backups found"
@@ -308,11 +304,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         }
         NotificationCenter.default.post(name: .updateLastBackupDisplay, object: nil, userInfo: ["title": title])
     }
-
+ 
     private func checkProlongedFailures() {
         // This function is fine, no changes needed
     }
-
+ 
     private func logFailure() {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
@@ -330,7 +326,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             print("DEBUG: Failed to log network drive failure: \(error)")
         }
     }
-
+ 
     private func countFailuresSinceLastSuccess() -> Int {
         var failureCount = 0
         if FileManager.default.fileExists(atPath: logFilePath) {
@@ -347,11 +343,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         }
         return failureCount
     }
-
+ 
     func logManualBackupFailure() {
         logFailure()
     }
-
+ 
     // MARK: - Helper Methods
     private func executeShellCommand(_ command: String, completion: @escaping ([String]) -> Void) {
         let process = Process()
@@ -364,7 +360,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         let output = String(data: data, encoding: .utf8)?.components(separatedBy: .newlines).filter { !$0.isEmpty } ?? []
         completion(output)
     }
-
+ 
     func notifyUser(title: String, informativeText: String) {
         let content = UNMutableNotificationContent()
         content.title = title
@@ -373,12 +369,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request)
     }
-
+ 
     // MARK: - User Notification Center Delegate Methods
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         completionHandler([.banner, .sound])
     }
-
+ 
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
         completionHandler()
     }

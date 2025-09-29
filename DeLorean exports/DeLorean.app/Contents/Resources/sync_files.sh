@@ -20,11 +20,7 @@ mkdir -p "$DEST" # Create destination directory if it doesn't exist
 
 # Log file
 LOG_FILE="$HOME/delorean.log"
-ABORT_FLAG="$HOME/delorean_abort.flag"
 mkdir -p "$(dirname "$LOG_FILE")" # Create log file directory if it doesn't exist
-
-# Clean up any old abort flag
-rm -f "$ABORT_FLAG"
 
 # Function to count failure attempts since the last successful backup
 count_failures_since_last_success() {
@@ -57,56 +53,14 @@ fi
 OPTIONS=(--archive --verbose --partial --progress --stats --delete)
 EXCLUDES=(--exclude='Pictures/Photos Library.photoslibrary' --exclude='.DS_Store')
 
-# Initialize success flag
-overall_success=true
-
-# Function to check for abort flag
-check_abort() {
-    if [ -f "$ABORT_FLAG" ]; then
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - Backup Failed: User aborted" >> "$LOG_FILE"
-        rm -f "$ABORT_FLAG"
-        cp "$LOG_FILE" "$DEST/delorean.log" 2>/dev/null || true
-        exit 0
-    fi
-}
-
 # Run single rsync command for all sources at once
-check_abort  # Check before starting
+rsync "${OPTIONS[@]}" "${EXCLUDES[@]}" "${SOURCES[@]}" "$DEST"
 
-# Start single rsync with ALL sources in one command
-rsync "${OPTIONS[@]}" "${EXCLUDES[@]}" "${SOURCES[@]}" "$DEST" &
-RSYNC_PID=$!
-
-# Monitor the single rsync process and check for abort every 2 seconds
-while kill -0 "$RSYNC_PID" 2>/dev/null; do
-    check_abort
-    sleep 2
-done
-
-# Wait for rsync to complete and get its exit status
-wait "$RSYNC_PID"
-RSYNC_EXIT_CODE=$?
-
-check_abort  # Final check after rsync completes
-
-if [ $RSYNC_EXIT_CODE -ne 0 ]; then
-    overall_success=false
-fi
-
-# Clean up abort flag at end
-rm -f "$ABORT_FLAG"
-
-# Log the overall result
-if [ "$overall_success" = true ]; then
+# Log result based on exit code
+if [ $? -eq 0 ]; then
     log_success
 else
-    # Check for abort flag one more time
-    if [ -f "$ABORT_FLAG" ]; then
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - Backup Failed: User aborted" >> "$LOG_FILE"
-        rm -f "$ABORT_FLAG"
-    else
-        log_failure
-    fi
+    log_failure
 fi
 
 # Copy log file to destination

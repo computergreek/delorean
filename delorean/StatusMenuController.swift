@@ -1,7 +1,7 @@
 import Cocoa
 import UserNotifications
 import QuartzCore
-
+ 
 extension Notification.Name {
     static let backupDidStart = Notification.Name("backupDidStart")
     static let backupDidFinish = Notification.Name("backupDidFinish")
@@ -11,7 +11,7 @@ extension Notification.Name {
     static let userDidAbortBackup = Notification.Name("userDidAbortBackup")
     static let updateLastBackupDisplay = Notification.Name("updateLastBackupDisplay")
 }
-
+ 
 class StatusMenuController: NSObject {
     
     // MARK: - Outlets
@@ -77,7 +77,7 @@ class StatusMenuController: NSObject {
         backupTask?.terminationHandler = { [weak self] process in
             DispatchQueue.main.async {
                 guard let self = self else { return }
-
+ 
                 // This is the improved logic.
                 if self.isUserInitiatedAbort {
                     // If the user aborted, we do nothing. The "Backup Aborted"
@@ -195,14 +195,37 @@ class StatusMenuController: NSObject {
         }
         isUserInitiatedAbort = true
         
-        // Create abort flag for bash script to see
-        let abortFlagPath = NSHomeDirectory() + "/delorean_abort.flag"
-        FileManager.default.createFile(atPath: abortFlagPath, contents: nil, attributes: nil)
-        
-        // Terminate the bash script (which will kill the single rsync process)
+        // Terminate the bash script (which will kill the rsync process)
         task.terminate()
         
+        // Log the abort in Swift
+        logUserAbort()
+        
         notifyUser(title: "Backup Aborted", informativeText: "The backup process has been cancelled.")
+    }
+ 
+    // Add this new method to StatusMenuController
+    private func logUserAbort() {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        let logEntry = "\(dateFormatter.string(from: Date())) - Backup Failed: User aborted\n"
+        
+        // Get log file path from AppDelegate
+        if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
+            let logFilePath = appDelegate.logFilePath
+            
+            do {
+                if let fileHandle = FileHandle(forWritingAtPath: logFilePath) {
+                    fileHandle.seekToEndOfFile()
+                    fileHandle.write(logEntry.data(using: .utf8)!)
+                    fileHandle.closeFile()
+                } else {
+                    try logEntry.write(toFile: logFilePath, atomically: true, encoding: .utf8)
+                }
+            } catch {
+                print("DEBUG: Failed to log user abort: \(error)")
+            }
+        }
     }
     
     @IBAction func quitClicked(sender: NSMenuItem) {

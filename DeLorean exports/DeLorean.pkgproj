@@ -33,7 +33,7 @@
 								<key>GID</key>
 								<integer>80</integer>
 								<key>PATH</key>
-								<string>/Users/kkorominas/delorean/DeLorean 2025-09-25 16-45-04/DeLorean.app</string>
+								<string>/Users/kkorominas/delorean/DeLorean exports/DeLorean.app</string>
 								<key>PATH_TYPE</key>
 								<integer>0</integer>
 								<key>PERMISSIONS</key>
@@ -473,7 +473,7 @@
 		<key>PACKAGE_SETTINGS</key>
 		<dict>
 			<key>AUTHENTICATION</key>
-			<integer>1</integer>
+			<integer>0</integer>
 			<key>CONCLUSION_ACTION</key>
 			<integer>0</integer>
 			<key>FOLLOW_SYMBOLIC_LINKS</key>
@@ -508,7 +508,7 @@
 			<key>BUILD_PATH</key>
 			<dict>
 				<key>PATH</key>
-				<string>/Users/kkorominas/delorean/DeLorean 2025-09-25 16-45-04</string>
+				<string>/Users/kkorominas/delorean/DeLorean exports</string>
 				<key>PATH_TYPE</key>
 				<integer>0</integer>
 			</dict>
@@ -685,7 +685,7 @@
 			<key>PAYLOAD_ONLY</key>
 			<false/>
 			<key>REFERENCE_FOLDER_PATH</key>
-			<string>/Users/kkorominas/delorean/DeLorean 2025-09-25 16-45-04</string>
+			<string>/Users/kkorominas/delorean/DeLorean exports</string>
 		</dict>
 	</dict>
 	<key>TYPE</key>

@@ -77,12 +77,21 @@ class StatusMenuController: NSObject {
         backupTask?.terminationHandler = { [weak self] process in
             DispatchQueue.main.async {
                 guard let self = self else { return }
-                let success = process.terminationStatus == 0
-                if success {
-                    self.notifyUser(title: "Backup Completed", informativeText: "Your files have been successfully backed up.")
-                } else if !self.isUserInitiatedAbort {
-                    self.notifyUser(title: "Backup Failed", informativeText: "There was an issue with the backup process.")
+
+                // This is the improved logic.
+                if self.isUserInitiatedAbort {
+                    // If the user aborted, we do nothing. The "Backup Aborted"
+                    // notification was already sent.
+                } else {
+                    // Otherwise, we check for normal success or failure.
+                    let success = process.terminationStatus == 0
+                    if success {
+                        self.notifyUser(title: "Backup Completed", informativeText: "Your files have been successfully backed up.")
+                    } else {
+                        self.notifyUser(title: "Backup Failed", informativeText: "There was an issue with the backup process.")
+                    }
                 }
+                
                 self.isUserInitiatedAbort = false
                 NotificationCenter.default.post(name: .backupDidFinish, object: nil)
             }
@@ -98,11 +107,11 @@ class StatusMenuController: NSObject {
     
     private func startSpinningIcon() {
         stopSpinningIcon()
-        
-        spinTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { _ in
-            self.currentRotation -= CGFloat.pi / 16 // Back to what was working
-            
-            DispatchQueue.main.async {
+        spinTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            self.currentRotation -= CGFloat.pi / 16
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
                 if let originalImage = self.originalIcon {
                     let rotatedImage = self.rotateImage(originalImage, by: self.currentRotation)
                     rotatedImage.isTemplate = true
@@ -184,16 +193,13 @@ class StatusMenuController: NSObject {
         guard let task = backupTask, isRunning else {
             return
         }
-        
         isUserInitiatedAbort = true
         
-        // Kill any currently running rsync process first
-        let killRsync = Process()
-        killRsync.launchPath = "/usr/bin/killall"
-        killRsync.arguments = ["rsync"]
-        try? killRsync.run()
+        // Create abort flag for bash script to see
+        let abortFlagPath = NSHomeDirectory() + "/delorean_abort.flag"
+        FileManager.default.createFile(atPath: abortFlagPath, contents: nil, attributes: nil)
         
-        // Then terminate the bash script
+        // Terminate the bash script (which will kill the single rsync process)
         task.terminate()
         
         notifyUser(title: "Backup Aborted", informativeText: "The backup process has been cancelled.")

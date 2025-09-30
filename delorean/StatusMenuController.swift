@@ -8,7 +8,6 @@ extension Notification.Name {
     static let StartBackup = Notification.Name("StartBackup")
     
     static let requestManualBackup = Notification.Name("requestManualBackup")
-    static let userDidAbortBackup = Notification.Name("userDidAbortBackup")
     static let updateLastBackupDisplay = Notification.Name("updateLastBackupDisplay")
 }
  

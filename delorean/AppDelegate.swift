@@ -15,7 +15,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     var logFilePath = "\(NSHomeDirectory())/delorean.log" // Default value, will be overwritten by loadConfig()
     var sources: [String] = []
     var dest: String = ""
-    var didRequestDirectoryAccess = false
+//    var didRequestDirectoryAccess = false
     var lastOverdueNotificationDate: Date?
  
     // MARK: - App Lifecycle
@@ -23,7 +23,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         NotificationCenter.default.addObserver(self, selector: #selector(backupDidStart), name: .backupDidStart, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(backupDidFinish(notification:)), name: .backupDidFinish, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(handleManualBackupRequest), name: .requestManualBackup, object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(handleUserAbort), name: .userDidAbortBackup, object: nil)
         UNUserNotificationCenter.current().delegate = self
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in }
         loadConfig()
@@ -45,26 +44,26 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         print("DEBUG: Cleanup complete")
     }
  
-    // MARK: - Directory Access
-    func requestAccessForDirectories() {
-        let networkVolume = self.dest
-        let networkVolumeURL = URL(fileURLWithPath: networkVolume, isDirectory: true)
-        do {
-            _ = try networkVolumeURL.checkResourceIsReachable()
-        } catch {
-            print("DEBUG: Failed to access network volume \(networkVolume): \(error)")
-        }
- 
-        for source in sources {
-            let trimmedSource = source.trimmingCharacters(in: .whitespacesAndNewlines)
-            let url = URL(fileURLWithPath: trimmedSource, isDirectory: true)
-            do {
-                _ = try url.checkResourceIsReachable()
-            } catch {
-                print("DEBUG: Failed to access directory \(trimmedSource): \(error)")
-            }
-        }
-    }
+//     MARK: - Directory Access
+//    func requestAccessForDirectories() {
+//        let networkVolume = self.dest
+//        let networkVolumeURL = URL(fileURLWithPath: networkVolume, isDirectory: true)
+//        do {
+//            _ = try networkVolumeURL.checkResourceIsReachable()
+//        } catch {
+//            print("DEBUG: Failed to access network volume \(networkVolume): \(error)")
+//        }
+// 
+//        for source in sources {
+//            let trimmedSource = source.trimmingCharacters(in: .whitespacesAndNewlines)
+//            let url = URL(fileURLWithPath: trimmedSource, isDirectory: true)
+//            do {
+//                _ = try url.checkResourceIsReachable()
+//            } catch {
+//                print("DEBUG: Failed to access directory \(trimmedSource): \(error)")
+//            }
+//        }
+//    }
  
     // MARK: - Notification Handlers
     @objc func backupDidStart(notification: Notification) {
@@ -85,28 +84,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         
         print("DEBUG: Starting backup with script: \(scriptPath)")
         NotificationCenter.default.post(name: .StartBackup, object: nil, userInfo: ["scriptPath": scriptPath])
-    }
- 
-    @objc private func handleUserAbort() {
-        isBackupRunning = false
-        NotificationCenter.default.post(name: .backupDidFinish, object: nil)
- 
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-        let logEntry = "\(dateFormatter.string(from: Date())) - Backup Failed: User aborted\n"
- 
-        do {
-            if let fileHandle = FileHandle(forWritingAtPath: logFilePath) {
-                fileHandle.seekToEndOfFile()
-                fileHandle.write(logEntry.data(using: .utf8)!)
-                fileHandle.closeFile()
-            } else {
-                try logEntry.write(toFile: logFilePath, atomically: true, encoding: .utf8)
-            }
-        } catch {
-            print("DEBUG: Failed to log user-aborted backup: \(error)")
-        }
-        updateLastBackupStatus()
     }
  
     // MARK: - Backup Configuration and Schedule
@@ -167,10 +144,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             }
         }
         
-        if !self.didRequestDirectoryAccess {
-            self.didRequestDirectoryAccess = true
-            self.requestAccessForDirectories()
-        }
+//        if !self.didRequestDirectoryAccess {
+//            self.didRequestDirectoryAccess = true
+////            self.requestAccessForDirectories()
+//        }
         self.startBackupTimer()
         self.updateLastBackupStatus()
     }
@@ -344,22 +321,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         return failureCount
     }
  
-    func logManualBackupFailure() {
-        logFailure()
-    }
- 
     // MARK: - Helper Methods
-    private func executeShellCommand(_ command: String, completion: @escaping ([String]) -> Void) {
-        let process = Process()
-        let pipe = Pipe()
-        process.launchPath = "/bin/bash"
-        process.arguments = ["-c", command]
-        process.standardOutput = pipe
-        process.launch()
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        let output = String(data: data, encoding: .utf8)?.components(separatedBy: .newlines).filter { !$0.isEmpty } ?? []
-        completion(output)
-    }
  
     func notifyUser(title: String, informativeText: String) {
         let content = UNMutableNotificationContent()

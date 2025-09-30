@@ -15,7 +15,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     var logFilePath = "\(NSHomeDirectory())/delorean.log" // Default value, will be overwritten by loadConfig()
     var sources: [String] = []
     var dest: String = ""
-//    var didRequestDirectoryAccess = false
     var lastOverdueNotificationDate: Date?
  
     // MARK: - App Lifecycle
@@ -43,27 +42,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         
         print("DEBUG: Cleanup complete")
     }
- 
-//     MARK: - Directory Access
-//    func requestAccessForDirectories() {
-//        let networkVolume = self.dest
-//        let networkVolumeURL = URL(fileURLWithPath: networkVolume, isDirectory: true)
-//        do {
-//            _ = try networkVolumeURL.checkResourceIsReachable()
-//        } catch {
-//            print("DEBUG: Failed to access network volume \(networkVolume): \(error)")
-//        }
-// 
-//        for source in sources {
-//            let trimmedSource = source.trimmingCharacters(in: .whitespacesAndNewlines)
-//            let url = URL(fileURLWithPath: trimmedSource, isDirectory: true)
-//            do {
-//                _ = try url.checkResourceIsReachable()
-//            } catch {
-//                print("DEBUG: Failed to access directory \(trimmedSource): \(error)")
-//            }
-//        }
-//    }
  
     // MARK: - Notification Handlers
     @objc func backupDidStart(notification: Notification) {
@@ -144,10 +122,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             }
         }
         
-//        if !self.didRequestDirectoryAccess {
-//            self.didRequestDirectoryAccess = true
-////            self.requestAccessForDirectories()
-//        }
         self.startBackupTimer()
         self.updateLastBackupStatus()
     }
@@ -283,7 +257,58 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     }
  
     private func checkProlongedFailures() {
-        // This function is fine, no changes needed
+        // Only notify during work hours (same as backup window)
+        let timeFormatter = DateFormatter()
+        timeFormatter.dateFormat = "HH:mm"
+        let currentTimeString = timeFormatter.string(from: Date())
+        
+        guard let currentTime = timeFormatter.date(from: currentTimeString),
+              let rangeStartTime = timeFormatter.date(from: self.rangeStart),
+              let rangeEndTime = timeFormatter.date(from: self.rangeEnd) else {
+            return
+        }
+        
+        // Only notify during work hours
+        if currentTime < rangeStartTime || currentTime > rangeEndTime { return }
+        
+        // Only notify once per day to avoid spam
+        let now = Date()
+        if let lastCheck = lastOverdueNotificationDate,
+           Calendar.current.isDate(lastCheck, inSameDayAs: now) {
+            return // Already notified today
+        }
+        
+        // Check if it's been too many days since last successful backup
+        let cutoffDate = Calendar.current.date(byAdding: .day, value: -maxDayAttemptNotification, to: Date()) ?? Date()
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        let cutoffString = dateFormatter.string(from: cutoffDate)
+        
+        guard FileManager.default.fileExists(atPath: logFilePath) else { return }
+        
+        do {
+            let logContent = try String(contentsOfFile: logFilePath, encoding: .utf8)
+            let hasRecentSuccess = logContent.split(separator: "\n").contains { line in
+                // Extract just the date part from the log line for comparison
+                if line.contains("Backup completed successfully") {
+                    let lineString = String(line)
+                    let datePart = String(lineString.prefix(10)) // Gets "2025-09-22" from "2025-09-22 18:58:04 - ..."
+                    return datePart >= cutoffString
+                }
+                return false
+            }
+            
+            if !hasRecentSuccess {
+                print("DEBUG: No recent success found, sending overdue notification")  // Add this for debugging
+                lastOverdueNotificationDate = now
+                notifyUser(
+                    title: "Backup Overdue",
+                    informativeText: "It's been \(maxDayAttemptNotification) days since the files on your computer were last successfully backed up. Please make sure you're connected to the network drive and try again."
+                )
+            }
+        } catch {
+            return
+        }
     }
  
     private func logFailure() {

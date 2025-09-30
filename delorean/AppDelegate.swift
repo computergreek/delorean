@@ -219,7 +219,24 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
  
         if !FileManager.default.fileExists(atPath: self.dest) {
             let failedBackupsToday = logEntries.contains { $0.contains("Backup Failed: Network drive inaccessible") && $0.contains(currentDateString) }
-            if !failedBackupsToday { logFailure() }
+            if !failedBackupsToday {
+                // Log network drive inaccessible (we can't detect rsync exit code from Swift)
+                let dateFormatter = DateFormatter()
+                dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+                let logEntry = "\(dateFormatter.string(from: Date())) - Backup Failed: Network drive not mounted\n"
+                
+                do {
+                    if let fileHandle = FileHandle(forWritingAtPath: logFilePath) {
+                        fileHandle.seekToEndOfFile()
+                        fileHandle.write(logEntry.data(using: .utf8)!)
+                        fileHandle.closeFile()
+                    } else {
+                        try logEntry.write(toFile: logFilePath, atomically: true, encoding: .utf8)
+                    }
+                } catch {
+                    print("DEBUG: Failed to log network drive failure: \(error)")
+                }
+            }
             return
         }
         
@@ -309,41 +326,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         } catch {
             return
         }
-    }
- 
-    private func logFailure() {
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-        let failureCount = countFailuresSinceLastSuccess() + 1
-        let logEntry = "\(dateFormatter.string(from: Date())) - Backup Failed: Network drive inaccessible (Failure count: \(failureCount))\n"
-        do {
-            if let fileHandle = FileHandle(forWritingAtPath: logFilePath) {
-                fileHandle.seekToEndOfFile()
-                fileHandle.write(logEntry.data(using: .utf8)!)
-                fileHandle.closeFile()
-            } else {
-                try logEntry.write(toFile: logFilePath, atomically: true, encoding: .utf8)
-            }
-        } catch {
-            print("DEBUG: Failed to log network drive failure: \(error)")
-        }
-    }
- 
-    private func countFailuresSinceLastSuccess() -> Int {
-        var failureCount = 0
-        if FileManager.default.fileExists(atPath: logFilePath) {
-            do {
-                let logContent = try String(contentsOfFile: logFilePath, encoding: .utf8)
-                let logEntries = logContent.components(separatedBy: .newlines).filter { !$0.isEmpty }
-                for entry in logEntries.reversed() {
-                    if entry.contains("Backup completed successfully") { break }
-                    if entry.contains("Backup Failed: Network drive inaccessible") { failureCount += 1 }
-                }
-            } catch {
-                print("DEBUG: Failed to read log file for failure count: \(error)")
-            }
-        }
-        return failureCount
     }
  
     // MARK: - Helper Methods

@@ -22,15 +22,24 @@ mkdir -p "$DEST" # Create destination directory if it doesn't exist
 LOG_FILE="$HOME/delorean.log"
 mkdir -p "$(dirname "$LOG_FILE")" # Create log file directory if it doesn't exist
  
-# Function to count failure attempts since the last successful backup
-count_failures_since_last_success() {
-    awk '/Backup completed successfully/{count=0} /Backup Failed: Network drive inaccessible/{count++} END{print count}' "$LOG_FILE"
-}
- 
-# Function to log a failure
-log_failure() {
-    failureCount=$(count_failures_since_last_success)
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - Backup Failed: Network drive inaccessible (Failure count: $((failureCount + 1)))" >> "$LOG_FILE"
+# Function to log a failure with rsync exit code
+log_failure_with_code() {
+    local exit_code=$1
+    local error_desc=""
+    
+    case $exit_code in
+        1) error_desc="Configuration or syntax error" ;;
+        3) error_desc="File access error (permissions or file in use)" ;;
+        10) error_desc="Network connection error" ;;
+        11) error_desc="File I/O error (disk full or file locked)" ;;
+        12) error_desc="Data corruption during transfer" ;;
+        23) error_desc="Transfer incomplete due to errors" ;;
+        24) error_desc="Source file was deleted during backup" ;;
+        30) error_desc="Network timeout" ;;
+        *) error_desc="Unknown error (code $exit_code)" ;;
+    esac
+    
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - Backup Failed: $error_desc (exit code: $exit_code)" >> "$LOG_FILE"
 }
  
 # Function to log a successful backup
@@ -55,14 +64,30 @@ EXCLUDES=(--exclude='Pictures/Photos Library.photoslibrary' --exclude='.DS_Store
  
 # Run single rsync command for all sources at once
 rsync "${OPTIONS[@]}" "${EXCLUDES[@]}" "${SOURCES[@]}" "$DEST"
- 
+rsync_exit_code=$?
+
+## Log result based on exit code
+#if [ $rsync_exit_code -eq 0 ]; then
+#    log_success
+#else
+#    log_failure_with_code $rsync_exit_code
+#fi
+# 
+## Copy log file to destination
+#cp "$LOG_FILE" "$DEST/delorean.log"
+#echo "Backup completed."
+
 # Log result based on exit code
-if [ $? -eq 0 ]; then
+if [ $rsync_exit_code -eq 0 ]; then
     log_success
+    # Copy log file to destination on success
+    cp "$LOG_FILE" "$DEST/delorean.log" 2>/dev/null || true
+    echo "Backup completed."
+    exit 0
 else
-    log_failure
+    log_failure_with_code $rsync_exit_code
+    # Try to copy log file even on failure (might not work if network is down)
+    cp "$LOG_FILE" "$DEST/delorean.log" 2>/dev/null || true
+    echo "Backup failed."
+    exit $rsync_exit_code  # Exit with the actual rsync error code
 fi
- 
-# Copy log file to destination
-cp "$LOG_FILE" "$DEST/delorean.log"
-echo "Backup completed."

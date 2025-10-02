@@ -16,6 +16,41 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     var sources: [String] = []
     var dest: String = ""
     var lastOverdueNotificationDate: Date?
+    private var todaysBackupStatus: BackupStatus = .notAttempted
+    private var lastStatusCheckDate: String = ""
+    private var lastNetworkCheckTime: Date = Date.distantPast
+    private var lastNetworkCheckResult: Bool = false
+    private let networkCheckCacheInterval: TimeInterval = 30
+
+    enum BackupStatus {
+        case notAttempted
+        case successful
+        case networkUnavailable
+    }
+
+    private lazy var timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }()
+
+    private lazy var logDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        return formatter
+    }()
+
+    private lazy var displayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM d, h:mm a"
+        return formatter
+    }()
+
+    private lazy var dateOnlyFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
  
     // MARK: - App Lifecycle
     func applicationDidFinishLaunching(_ aNotification: Notification) {
@@ -50,6 +85,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
  
     @objc func backupDidFinish(notification: Notification) {
         isBackupRunning = false
+        
+        // Update today's status based on outcome
+        if let userInfo = notification.userInfo,
+           let success = userInfo["success"] as? Bool {
+            todaysBackupStatus = success ? .successful : .networkUnavailable
+        }
+        
         updateLastBackupStatus()
     }
  
@@ -61,10 +103,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         }
         
         // Check if network drive is available for manual backup
-        if !FileManager.default.fileExists(atPath: self.dest) {
-            let dateFormatter = DateFormatter()
-            dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-            let logEntry = "\(dateFormatter.string(from: Date())) - Backup Failed: Network drive not mounted (manual backup)\n"
+        if !isNetworkDriveAvailable() {
+            let logEntry = "\(logDateFormatter.string(from: Date())) - Backup Failed: Network drive not mounted (manual backup)\n"
             do {
                 if let fileHandle = FileHandle(forWritingAtPath: logFilePath) {
                     fileHandle.seekToEndOfFile()
@@ -203,53 +243,46 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         checkBackupSchedule()
         checkProlongedFailures()
     }
+    
+    private func isNetworkDriveAvailable() -> Bool {
+        let now = Date()
+        if now.timeIntervalSince(lastNetworkCheckTime) > networkCheckCacheInterval {
+            lastNetworkCheckResult = FileManager.default.fileExists(atPath: self.dest)
+            lastNetworkCheckTime = now
+        }
+        return lastNetworkCheckResult
+    }
  
     @objc private func checkBackupSchedule() {
         guard !isBackupRunning else { return }
- 
-        let timeFormatter = DateFormatter()
-        timeFormatter.dateFormat = "HH:mm"
-        let logDateFormatter = DateFormatter()
-        logDateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
         
         let currentTimeString = timeFormatter.string(from: Date())
         let currentDateString = logDateFormatter.string(from: Date()).prefix(10)
- 
+        
         guard let currentTime = timeFormatter.date(from: currentTimeString),
               let rangeEndTime = timeFormatter.date(from: self.rangeEnd),
               let backupTime = timeFormatter.date(from: "\(self.backupHour):\(self.backupMinute)") else {
             return
         }
- 
-        if currentTime < backupTime || currentTime > rangeEndTime { return }
- 
-        var logContent = ""
-        if FileManager.default.fileExists(atPath: logFilePath) {
-            logContent = (try? String(contentsOfFile: logFilePath, encoding: .utf8)) ?? ""
-        }
- 
-        if logContent.isEmpty {
-            guard let scriptPath = Bundle.main.path(forResource: "sync_files", ofType: "sh") else {
-                print("ERROR: Failed to locate sync_files.sh during scheduled backup")
-                return
-            }
-            isBackupRunning = true
-            NotificationCenter.default.post(name: .StartBackup, object: nil, userInfo: ["scriptPath": scriptPath])
-            return
-        }
- 
-        let logEntries = logContent.components(separatedBy: .newlines).filter { !$0.isEmpty }
-        let successfulBackupsToday = logEntries.contains { $0.contains("Backup completed successfully") && $0.contains(currentDateString) }
         
-        if successfulBackupsToday { return }
- 
-        if !FileManager.default.fileExists(atPath: self.dest) {
+        if currentTime < backupTime || currentTime > rangeEndTime { return }
+        
+        // Reset status if it's a new day
+        let todayString = String(currentDateString)
+        if lastStatusCheckDate != todayString {
+            todaysBackupStatus = .notAttempted
+            lastStatusCheckDate = todayString
+        }
+        
+        // If we already succeeded today, skip all further checks
+        if todaysBackupStatus == .successful { return }
+        
+        // Check network drive availability
+        if !isNetworkDriveAvailable() {
             // Only log once per day when drive is unavailable
-            let failedBackupsToday = logEntries.contains { $0.contains("Backup Failed: Network drive not mounted") && $0.contains(currentDateString) }
-            if !failedBackupsToday {
-                let dateFormatter = DateFormatter()
-                dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-                let logEntry = "\(dateFormatter.string(from: Date())) - Backup Failed: Network drive not mounted (scheduled backup)\n"
+            if todaysBackupStatus != .networkUnavailable {
+                todaysBackupStatus = .networkUnavailable
+                let logEntry = "\(logDateFormatter.string(from: Date())) - Backup Failed: Network drive not mounted (scheduled backup)\n"
                 do {
                     if let fileHandle = FileHandle(forWritingAtPath: logFilePath) {
                         fileHandle.seekToEndOfFile()
@@ -265,6 +298,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             return
         }
         
+        // Network drive is available, start backup
         guard let scriptPath = Bundle.main.path(forResource: "sync_files", ofType: "sh") else {
             print("ERROR: Failed to locate sync_files.sh during scheduled backup")
             return
@@ -280,18 +314,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             NotificationCenter.default.post(name: .updateLastBackupDisplay, object: nil, userInfo: ["title": title])
             return
         }
+        
         do {
             let logContent = try String(contentsOfFile: logFilePath, encoding: .utf8)
             let logEntries = logContent.components(separatedBy: .newlines).filter { !$0.isEmpty }
+            
             if let lastSuccessfulBackup = logEntries.reversed().first(where: { $0.contains("Backup completed successfully") }) {
                 let components = lastSuccessfulBackup.components(separatedBy: " - ")
                 if components.count > 1 {
                     let dateStr = components[0]
-                    let dateFormatter = DateFormatter()
-                    dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-                    if let date = dateFormatter.date(from: dateStr) {
-                        let displayFormatter = DateFormatter()
-                        displayFormatter.dateFormat = "MMMM d, h:mm a"
+                    if let date = logDateFormatter.date(from: dateStr) {
                         title = "Last Backup: \(displayFormatter.string(from: date))"
                     }
                 }
@@ -299,15 +331,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         } catch {
             title = "Last Backup: Error reading log"
         }
+        
         NotificationCenter.default.post(name: .updateLastBackupDisplay, object: nil, userInfo: ["title": title])
     }
  
     private func checkProlongedFailures() {
         // Only notify during work hours (same as backup window)
-        let timeFormatter = DateFormatter()
-        timeFormatter.dateFormat = "HH:mm"
         let currentTimeString = timeFormatter.string(from: Date())
-        
         guard let currentTime = timeFormatter.date(from: currentTimeString),
               let rangeStartTime = timeFormatter.date(from: self.rangeStart),
               let rangeEndTime = timeFormatter.date(from: self.rangeEnd) else {
@@ -326,9 +356,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         
         // Check if it's been too many days since last successful backup
         let cutoffDate = Calendar.current.date(byAdding: .day, value: -maxDayAttemptNotification, to: Date()) ?? Date()
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd"
-        let cutoffString = dateFormatter.string(from: cutoffDate)
+        let cutoffString = dateOnlyFormatter.string(from: cutoffDate)
         
         guard FileManager.default.fileExists(atPath: logFilePath) else { return }
         
@@ -345,7 +373,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             }
             
             if !hasRecentSuccess {
-                print("DEBUG: No recent success found, sending overdue notification")  // Add this for debugging
+                print("DEBUG: No recent success found, sending overdue notification")
                 lastOverdueNotificationDate = now
                 notifyUser(
                     title: "Backup Overdue",

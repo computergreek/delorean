@@ -373,11 +373,25 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             }
             
             if !hasRecentSuccess {
+                // Calculate actual days since last successful backup
+                var actualDaysSinceBackup = maxDayAttemptNotification
+                
+                // Find the most recent successful backup to get exact days
+                if let lastSuccessLine = logContent.split(separator: "\n").last(where: { $0.contains("Backup completed successfully") }) {
+                    let lineString = String(lastSuccessLine)
+                    if let dateStr = lineString.components(separatedBy: " - ").first,
+                       let lastBackupDate = logDateFormatter.date(from: String(dateStr)) {
+                        actualDaysSinceBackup = max(1, Calendar.current.dateComponents([.day], from: lastBackupDate, to: now).day ?? maxDayAttemptNotification)
+                    }
+                }
+                
                 print("DEBUG: No recent success found, sending overdue notification")
                 lastOverdueNotificationDate = now
+                
+                let dayText = actualDaysSinceBackup == 1 ? "day" : "days"
                 notifyUser(
                     title: "Backup Overdue",
-                    informativeText: "It's been \(maxDayAttemptNotification) days since the files on your computer were last successfully backed up. Please make sure you're connected to the network drive and try again."
+                    informativeText: "It's been \(actualDaysSinceBackup) \(dayText) since the files on your computer were last successfully backed up. Please make sure you're connected to the network drive and try again."
                 )
             }
         } catch {

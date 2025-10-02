@@ -109,8 +109,7 @@ class StatusMenuController: NSObject {
         spinTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { [weak self] _ in
             guard let self = self else { return }
             self.currentRotation -= CGFloat.pi / 16
-            DispatchQueue.main.async { [weak self] in
-                guard let self = self else { return }
+            DispatchQueue.main.async {
                 if let originalImage = self.originalIcon {
                     let rotatedImage = self.rotateImage(originalImage, by: self.currentRotation)
                     rotatedImage.isTemplate = true

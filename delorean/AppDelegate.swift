@@ -60,6 +60,26 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             return
         }
         
+        // Check if network drive is available for manual backup
+        if !FileManager.default.fileExists(atPath: self.dest) {
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+            let logEntry = "\(dateFormatter.string(from: Date())) - Backup Failed: Network drive not mounted (manual backup)\n"
+            do {
+                if let fileHandle = FileHandle(forWritingAtPath: logFilePath) {
+                    fileHandle.seekToEndOfFile()
+                    fileHandle.write(logEntry.data(using: .utf8)!)
+                    fileHandle.closeFile()
+                } else {
+                    try logEntry.write(toFile: logFilePath, atomically: true, encoding: .utf8)
+                }
+            } catch {
+                print("DEBUG: Failed to log manual backup network failure: \(error)")
+            }
+            notifyUser(title: "Backup Failed", informativeText: "Network drive is not accessible.")
+            return
+        }
+        
         print("DEBUG: Starting backup with script: \(scriptPath)")
         NotificationCenter.default.post(name: .StartBackup, object: nil, userInfo: ["scriptPath": scriptPath])
     }
@@ -173,7 +193,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
  
     private func startBackupTimer() {
         backupTimer?.invalidate()
-        backupTimer = Timer.scheduledTimer(timeInterval: frequency, target: self, selector: #selector(performScheduledChecks), userInfo: nil, repeats: true)
+        backupTimer = Timer.scheduledTimer(withTimeInterval: frequency, repeats: true) { [weak self] _ in
+            self?.performScheduledChecks()
+        }
         performScheduledChecks()
     }
  
@@ -207,8 +229,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         }
  
         if logContent.isEmpty {
+            guard let scriptPath = Bundle.main.path(forResource: "sync_files", ofType: "sh") else {
+                print("ERROR: Failed to locate sync_files.sh during scheduled backup")
+                return
+            }
             isBackupRunning = true
-            NotificationCenter.default.post(name: .StartBackup, object: nil, userInfo: ["scriptPath": Bundle.main.path(forResource: "sync_files", ofType: "sh")!])
+            NotificationCenter.default.post(name: .StartBackup, object: nil, userInfo: ["scriptPath": scriptPath])
             return
         }
  
@@ -218,13 +244,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         if successfulBackupsToday { return }
  
         if !FileManager.default.fileExists(atPath: self.dest) {
-            let failedBackupsToday = logEntries.contains { $0.contains("Backup Failed: Network drive inaccessible") && $0.contains(currentDateString) }
+            // Only log once per day when drive is unavailable
+            let failedBackupsToday = logEntries.contains { $0.contains("Backup Failed: Network drive not mounted") && $0.contains(currentDateString) }
             if !failedBackupsToday {
-                // Log network drive inaccessible (we can't detect rsync exit code from Swift)
                 let dateFormatter = DateFormatter()
                 dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-                let logEntry = "\(dateFormatter.string(from: Date())) - Backup Failed: Network drive not mounted\n"
-                
+                let logEntry = "\(dateFormatter.string(from: Date())) - Backup Failed: Network drive not mounted (scheduled backup)\n"
                 do {
                     if let fileHandle = FileHandle(forWritingAtPath: logFilePath) {
                         fileHandle.seekToEndOfFile()
@@ -240,8 +265,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             return
         }
         
+        guard let scriptPath = Bundle.main.path(forResource: "sync_files", ofType: "sh") else {
+            print("ERROR: Failed to locate sync_files.sh during scheduled backup")
+            return
+        }
         isBackupRunning = true
-        NotificationCenter.default.post(name: .StartBackup, object: nil, userInfo: ["scriptPath": Bundle.main.path(forResource: "sync_files", ofType: "sh")!])
+        NotificationCenter.default.post(name: .StartBackup, object: nil, userInfo: ["scriptPath": scriptPath])
     }
  
     // MARK: - Logging and Status

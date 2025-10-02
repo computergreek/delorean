@@ -47,12 +47,6 @@ log_success() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - Backup completed successfully" >> "$LOG_FILE"
 }
  
-# Check if the network drive is mounted by testing if the destination directory exists and is accessible
-if [ ! -d "$DEST" ]; then
-    log_failure
-    exit 1  # Exit the script with an error status
-fi
- 
 # Ensure the log file exists and has an initial entry
 if [ ! -f "$LOG_FILE" ]; then
     echo "$(date '+%Y-%m-%d %H:%M:%S') - Log file created" > "$LOG_FILE"
@@ -65,17 +59,6 @@ EXCLUDES=(--exclude='Pictures/Photos Library.photoslibrary' --exclude='.DS_Store
 # Run single rsync command for all sources at once
 rsync "${OPTIONS[@]}" "${EXCLUDES[@]}" "${SOURCES[@]}" "$DEST"
 rsync_exit_code=$?
-
-## Log result based on exit code
-#if [ $rsync_exit_code -eq 0 ]; then
-#    log_success
-#else
-#    log_failure_with_code $rsync_exit_code
-#fi
-# 
-## Copy log file to destination
-#cp "$LOG_FILE" "$DEST/delorean.log"
-#echo "Backup completed."
 
 # Log result based on exit code
 if [ $rsync_exit_code -eq 0 ]; then

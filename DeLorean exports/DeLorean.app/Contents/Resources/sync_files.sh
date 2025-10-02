@@ -47,11 +47,6 @@ log_success() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - Backup completed successfully" >> "$LOG_FILE"
 }
  
-# Ensure the log file exists and has an initial entry
-if [ ! -f "$LOG_FILE" ]; then
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - Log file created" > "$LOG_FILE"
-fi
- 
 # Rsync options and excludes as arrays
 OPTIONS=(--archive --verbose --partial --progress --stats --delete)
 EXCLUDES=(--exclude='Pictures/Photos Library.photoslibrary' --exclude='.DS_Store')

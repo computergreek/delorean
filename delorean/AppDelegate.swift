@@ -20,6 +20,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     private var lastStatusCheckDate: String = ""
     private var lastNetworkCheckTime: Date = Date.distantPast
     private var lastNetworkCheckResult: Bool = false
+    private var networkCacheInitialized: Bool = false
     private let networkCheckCacheInterval: TimeInterval = 30
 
     enum BackupStatus {
@@ -89,7 +90,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         // Update today's status based on outcome
         if let userInfo = notification.userInfo,
            let success = userInfo["success"] as? Bool {
-            todaysBackupStatus = success ? .successful : .networkUnavailable
+            if success {
+                todaysBackupStatus = .successful
+            }
+            // On failure, don't change status - let retry logic work naturally
+            // Network failures are handled separately in checkBackupSchedule()
         }
         
         updateLastBackupStatus()
@@ -104,6 +109,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         
         // Check if network drive is available for manual backup
         if !isNetworkDriveAvailable() {
+            // Ensure log file exists with initial entry
+            if !FileManager.default.fileExists(atPath: logFilePath) {
+                let initialEntry = "\(logDateFormatter.string(from: Date())) - Log file created\n"
+                try? initialEntry.write(toFile: logFilePath, atomically: true, encoding: .utf8)
+            }
+            
             let logEntry = "\(logDateFormatter.string(from: Date())) - Backup Failed: Network drive not mounted (manual backup)\n"
             do {
                 if let fileHandle = FileHandle(forWritingAtPath: logFilePath) {
@@ -246,10 +257,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     
     private func isNetworkDriveAvailable() -> Bool {
         let now = Date()
-        if now.timeIntervalSince(lastNetworkCheckTime) > networkCheckCacheInterval {
+        
+        // Always check on first call or if cache expired
+        if !networkCacheInitialized || now.timeIntervalSince(lastNetworkCheckTime) > networkCheckCacheInterval {
             lastNetworkCheckResult = FileManager.default.fileExists(atPath: self.dest)
             lastNetworkCheckTime = now
+            networkCacheInitialized = true
         }
+        
         return lastNetworkCheckResult
     }
  
@@ -282,6 +297,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             // Only log once per day when drive is unavailable
             if todaysBackupStatus != .networkUnavailable {
                 todaysBackupStatus = .networkUnavailable
+                // Ensure log file exists with initial entry
+                if !FileManager.default.fileExists(atPath: logFilePath) {
+                    let initialEntry = "\(logDateFormatter.string(from: Date())) - Log file created\n"
+                    try? initialEntry.write(toFile: logFilePath, atomically: true, encoding: .utf8)
+                }
+
                 let logEntry = "\(logDateFormatter.string(from: Date())) - Backup Failed: Network drive not mounted (scheduled backup)\n"
                 do {
                     if let fileHandle = FileHandle(forWritingAtPath: logFilePath) {
@@ -356,18 +377,25 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         
         // Check if it's been too many days since last successful backup
         let cutoffDate = Calendar.current.date(byAdding: .day, value: -maxDayAttemptNotification, to: Date()) ?? Date()
-        let cutoffString = dateOnlyFormatter.string(from: cutoffDate)
-        
+        // Don't check for overdue backups if no log file exists (fresh install)
         guard FileManager.default.fileExists(atPath: logFilePath) else { return }
-        
         do {
             let logContent = try String(contentsOfFile: logFilePath, encoding: .utf8)
+            
+            // Don't notify if log file is empty or only has "Log file created" entry
+            let logEntries = logContent.components(separatedBy: .newlines).filter { !$0.isEmpty }
+            let hasAnyBackupAttempts = logEntries.contains { line in
+                line.contains("completed successfully") || line.contains("Backup Failed")
+            }
+            if !hasAnyBackupAttempts { return }
             let hasRecentSuccess = logContent.split(separator: "\n").contains { line in
-                // Extract just the date part from the log line for comparison
+                // Extract date part and compare properly
                 if line.contains("Backup completed successfully") {
                     let lineString = String(line)
-                    let datePart = String(lineString.prefix(10)) // Gets "2025-09-22" from "2025-09-22 18:58:04 - ..."
-                    return datePart >= cutoffString
+                    if let dateStr = lineString.components(separatedBy: " - ").first,
+                       let backupDate = logDateFormatter.date(from: String(dateStr)) {
+                        return backupDate >= cutoffDate
+                    }
                 }
                 return false
             }
@@ -383,6 +411,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
                        let lastBackupDate = logDateFormatter.date(from: String(dateStr)) {
                         actualDaysSinceBackup = max(1, Calendar.current.dateComponents([.day], from: lastBackupDate, to: now).day ?? maxDayAttemptNotification)
                     }
+                } else {
+                    // No successful backup found in history - don't notify yet
+                    return
                 }
                 
                 print("DEBUG: No recent success found, sending overdue notification")

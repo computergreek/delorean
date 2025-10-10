@@ -5,6 +5,7 @@ import UserNotifications
 class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     var statusMenuController: StatusMenuController?
     var isBackupRunning = false
+    var isManualBackup = false
     var backupTimer: Timer?
     var backupHour = ""
     var backupMinute = ""
@@ -142,29 +143,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         // Check if network drive is available for manual backup
         if !isNetworkDriveAvailable() {
             writeToLog("Backup Failed: Network drive not mounted (manual backup)")
-            
-//            // Ensure log file exists with initial entry
-//            if !FileManager.default.fileExists(atPath: logFilePath) {
-//                let initialEntry = "\(logDateFormatter.string(from: Date())) - Log file created\n"
-//                try? initialEntry.write(toFile: logFilePath, atomically: true, encoding: .utf8)
-//            }
-//            
-//            let logEntry = "\(logDateFormatter.string(from: Date())) - Backup Failed: Network drive not mounted (manual backup)\n"
-//            do {
-//                if let fileHandle = FileHandle(forWritingAtPath: logFilePath) {
-//                    fileHandle.seekToEndOfFile()
-//                    fileHandle.write(logEntry.data(using: .utf8)!)
-//                    fileHandle.closeFile()
-//                } else {
-//                    try logEntry.write(toFile: logFilePath, atomically: true, encoding: .utf8)
-//                }
-//            } catch {
-//                print("DEBUG: Failed to log manual backup network failure: \(error)")
-//            }
             notifyUser(title: "Backup Failed", informativeText: "Network drive is not accessible.")
             return
         }
         
+        isManualBackup = true
+        writeToLog("Manual backup initiated")
         print("DEBUG: Starting backup with script: \(scriptPath)")
         NotificationCenter.default.post(name: .StartBackup, object: nil, userInfo: ["scriptPath": scriptPath])
     }
@@ -336,24 +320,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
                 todaysBackupStatus = .networkUnavailable
                 
                 writeToLog("Backup Failed: Network drive not mounted (scheduled backup)")
-//                // Ensure log file exists with initial entry
-//                if !FileManager.default.fileExists(atPath: logFilePath) {
-//                    let initialEntry = "\(logDateFormatter.string(from: Date())) - Log file created\n"
-//                    try? initialEntry.write(toFile: logFilePath, atomically: true, encoding: .utf8)
-//                }
-//
-//                let logEntry = "\(logDateFormatter.string(from: Date())) - Backup Failed: Network drive not mounted (scheduled backup)\n"
-//                do {
-//                    if let fileHandle = FileHandle(forWritingAtPath: logFilePath) {
-//                        fileHandle.seekToEndOfFile()
-//                        fileHandle.write(logEntry.data(using: .utf8)!)
-//                        fileHandle.closeFile()
-//                    } else {
-//                        try logEntry.write(toFile: logFilePath, atomically: true, encoding: .utf8)
-//                    }
-//                } catch {
-//                    print("DEBUG: Failed to log network drive failure: \(error)")
-//                }
             }
             return
         }
@@ -363,6 +329,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             print("ERROR: Failed to locate sync_files.sh during scheduled backup")
             return
         }
+
+        isManualBackup = false  // ← Mark this as scheduled
+        writeToLog("Scheduled backup initiated")
         isBackupRunning = true
         NotificationCenter.default.post(name: .StartBackup, object: nil, userInfo: ["scriptPath": scriptPath])
     }

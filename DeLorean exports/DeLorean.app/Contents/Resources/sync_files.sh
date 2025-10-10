@@ -1,10 +1,24 @@
 #!/bin/bash
 
 # Ensure child processes (rsync) are terminated when this script exits
-trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
+# When we receive SIGTERM/SIGINT, exit immediately without logging
+cleanup() {
+    # First, try graceful termination
+    kill -TERM -- -$$ 2>/dev/null
+    
+    # Wait briefly for processes to clean up
+    sleep 0.5
+    
+    # Force kill any remaining processes
+    kill -KILL -- -$$ 2>/dev/null
+    
+    exit 130  # Standard exit code for script terminated by signal
+}
+
+trap cleanup SIGINT SIGTERM
  
 # Backup scheduling parameters
-scheduledBackupTime="09:15"
+scheduledBackupTime="11:32"
 rangeStart="07:00"
 rangeEnd="21:00"
 # How often the app should check if an rsync happened that day in seconds (3600 seconds = 1 hour)
@@ -47,7 +61,10 @@ log_failure_with_code() {
  
 # Function to log a successful backup
 log_success() {
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - Backup completed successfully" >> "$LOG_FILE"
+    # Check if this was triggered by manual or scheduled backup
+    # We'll pass this as an environment variable from Swift
+    local backup_type="${BACKUP_TYPE:-scheduled}"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - Backup completed successfully ($backup_type)" >> "$LOG_FILE"
 }
  
 # Rsync options and excludes as arrays

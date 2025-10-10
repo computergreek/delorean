@@ -71,6 +71,17 @@ class StatusMenuController: NSObject {
         backupTask = Process()
         backupTask?.launchPath = "/bin/bash"
         backupTask?.arguments = [scriptPath]
+        
+        // Pass backup type to script via environment variable
+        if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
+            let backupType = appDelegate.isManualBackup ? "manual" : "scheduled"
+            
+            // Get the current environment and ADD our variable to it
+            var environment = ProcessInfo.processInfo.environment
+            environment["BACKUP_TYPE"] = backupType
+            backupTask?.environment = environment
+        }
+        
         backupTask?.terminationHandler = { [weak self] process in
             DispatchQueue.main.async {
                 guard let self = self else { return }

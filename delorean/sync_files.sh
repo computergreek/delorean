@@ -1,4 +1,7 @@
 #!/bin/bash
+
+# Ensure child processes (rsync) are terminated when this script exits
+trap "trap - SIGTERM && kill -- -$$" SIGINT SIGTERM EXIT
  
 # Backup scheduling parameters
 scheduledBackupTime="09:15"

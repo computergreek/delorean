@@ -53,17 +53,49 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         return formatter
     }()
  
+    private let logQueue = DispatchQueue(label: "com.ufemit.delorean.logging", qos: .utility)
+
+    private func writeToLog(_ message: String) {
+        logQueue.async { [weak self] in
+            guard let self = self else { return }
+            
+            // Ensure log file exists with initial entry if needed
+            if !FileManager.default.fileExists(atPath: self.logFilePath) {
+                let initialEntry = "\(self.logDateFormatter.string(from: Date())) - Log file created\n"
+                try? initialEntry.write(toFile: self.logFilePath, atomically: true, encoding: .utf8)
+            }
+            
+            let logEntry = "\(self.logDateFormatter.string(from: Date())) - \(message)\n"
+            do {
+                if let fileHandle = FileHandle(forWritingAtPath: self.logFilePath) {
+                    fileHandle.seekToEndOfFile()
+                    fileHandle.write(logEntry.data(using: .utf8)!)
+                    fileHandle.closeFile()
+                } else {
+                    try logEntry.write(toFile: self.logFilePath, atomically: true, encoding: .utf8)
+                }
+            } catch {
+                print("DEBUG: Failed to write to log: \(error)")
+            }
+        }
+    }
+    
     // MARK: - App Lifecycle
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         NotificationCenter.default.addObserver(self, selector: #selector(backupDidStart), name: .backupDidStart, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(backupDidFinish(notification:)), name: .backupDidFinish, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(handleManualBackupRequest), name: .requestManualBackup, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(handleLogAbort), name: .logAbort, object: nil)
         UNUserNotificationCenter.current().delegate = self
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in }
         loadConfig()
         
         // Simple solution: use the shared instance (XIB will set it up)
         statusMenuController = StatusMenuController.shared
+    }
+    
+    @objc private func handleLogAbort() {
+        writeToLog("Backup Failed: User aborted")
     }
  
     func applicationWillTerminate(_ aNotification: Notification) {
@@ -109,24 +141,26 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         
         // Check if network drive is available for manual backup
         if !isNetworkDriveAvailable() {
-            // Ensure log file exists with initial entry
-            if !FileManager.default.fileExists(atPath: logFilePath) {
-                let initialEntry = "\(logDateFormatter.string(from: Date())) - Log file created\n"
-                try? initialEntry.write(toFile: logFilePath, atomically: true, encoding: .utf8)
-            }
+            writeToLog("Backup Failed: Network drive not mounted (manual backup)")
             
-            let logEntry = "\(logDateFormatter.string(from: Date())) - Backup Failed: Network drive not mounted (manual backup)\n"
-            do {
-                if let fileHandle = FileHandle(forWritingAtPath: logFilePath) {
-                    fileHandle.seekToEndOfFile()
-                    fileHandle.write(logEntry.data(using: .utf8)!)
-                    fileHandle.closeFile()
-                } else {
-                    try logEntry.write(toFile: logFilePath, atomically: true, encoding: .utf8)
-                }
-            } catch {
-                print("DEBUG: Failed to log manual backup network failure: \(error)")
-            }
+//            // Ensure log file exists with initial entry
+//            if !FileManager.default.fileExists(atPath: logFilePath) {
+//                let initialEntry = "\(logDateFormatter.string(from: Date())) - Log file created\n"
+//                try? initialEntry.write(toFile: logFilePath, atomically: true, encoding: .utf8)
+//            }
+//            
+//            let logEntry = "\(logDateFormatter.string(from: Date())) - Backup Failed: Network drive not mounted (manual backup)\n"
+//            do {
+//                if let fileHandle = FileHandle(forWritingAtPath: logFilePath) {
+//                    fileHandle.seekToEndOfFile()
+//                    fileHandle.write(logEntry.data(using: .utf8)!)
+//                    fileHandle.closeFile()
+//                } else {
+//                    try logEntry.write(toFile: logFilePath, atomically: true, encoding: .utf8)
+//                }
+//            } catch {
+//                print("DEBUG: Failed to log manual backup network failure: \(error)")
+//            }
             notifyUser(title: "Backup Failed", informativeText: "Network drive is not accessible.")
             return
         }
@@ -244,10 +278,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
  
     private func startBackupTimer() {
         backupTimer?.invalidate()
-        backupTimer = Timer.scheduledTimer(withTimeInterval: frequency, repeats: true) { [weak self] _ in
-            self?.performScheduledChecks()
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.backupTimer = Timer.scheduledTimer(withTimeInterval: self.frequency, repeats: true) { [weak self] _ in
+                self?.performScheduledChecks()
+            }
+            self.performScheduledChecks()
         }
-        performScheduledChecks()
     }
  
     @objc private func performScheduledChecks() {
@@ -297,24 +334,26 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             // Only log once per day when drive is unavailable
             if todaysBackupStatus != .networkUnavailable {
                 todaysBackupStatus = .networkUnavailable
-                // Ensure log file exists with initial entry
-                if !FileManager.default.fileExists(atPath: logFilePath) {
-                    let initialEntry = "\(logDateFormatter.string(from: Date())) - Log file created\n"
-                    try? initialEntry.write(toFile: logFilePath, atomically: true, encoding: .utf8)
-                }
-
-                let logEntry = "\(logDateFormatter.string(from: Date())) - Backup Failed: Network drive not mounted (scheduled backup)\n"
-                do {
-                    if let fileHandle = FileHandle(forWritingAtPath: logFilePath) {
-                        fileHandle.seekToEndOfFile()
-                        fileHandle.write(logEntry.data(using: .utf8)!)
-                        fileHandle.closeFile()
-                    } else {
-                        try logEntry.write(toFile: logFilePath, atomically: true, encoding: .utf8)
-                    }
-                } catch {
-                    print("DEBUG: Failed to log network drive failure: \(error)")
-                }
+                
+                writeToLog("Backup Failed: Network drive not mounted (scheduled backup)")
+//                // Ensure log file exists with initial entry
+//                if !FileManager.default.fileExists(atPath: logFilePath) {
+//                    let initialEntry = "\(logDateFormatter.string(from: Date())) - Log file created\n"
+//                    try? initialEntry.write(toFile: logFilePath, atomically: true, encoding: .utf8)
+//                }
+//
+//                let logEntry = "\(logDateFormatter.string(from: Date())) - Backup Failed: Network drive not mounted (scheduled backup)\n"
+//                do {
+//                    if let fileHandle = FileHandle(forWritingAtPath: logFilePath) {
+//                        fileHandle.seekToEndOfFile()
+//                        fileHandle.write(logEntry.data(using: .utf8)!)
+//                        fileHandle.closeFile()
+//                    } else {
+//                        try logEntry.write(toFile: logFilePath, atomically: true, encoding: .utf8)
+//                    }
+//                } catch {
+//                    print("DEBUG: Failed to log network drive failure: \(error)")
+//                }
             }
             return
         }

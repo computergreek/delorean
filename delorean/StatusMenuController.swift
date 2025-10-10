@@ -2,13 +2,22 @@ import Cocoa
 import UserNotifications
 import QuartzCore
  
+//extension Notification.Name {
+//    static let backupDidStart = Notification.Name("backupDidStart")
+//    static let backupDidFinish = Notification.Name("backupDidFinish")
+//    static let StartBackup = Notification.Name("StartBackup")
+//    
+//    static let requestManualBackup = Notification.Name("requestManualBackup")
+//    static let updateLastBackupDisplay = Notification.Name("updateLastBackupDisplay")
+//}
+
 extension Notification.Name {
     static let backupDidStart = Notification.Name("backupDidStart")
     static let backupDidFinish = Notification.Name("backupDidFinish")
     static let StartBackup = Notification.Name("StartBackup")
-    
     static let requestManualBackup = Notification.Name("requestManualBackup")
     static let updateLastBackupDisplay = Notification.Name("updateLastBackupDisplay")
+    static let logAbort = Notification.Name("logAbort")
 }
  
 class StatusMenuController: NSObject {
@@ -200,27 +209,31 @@ class StatusMenuController: NSObject {
     }
  
     // Add this new method to StatusMenuController
+//    private func logUserAbort() {
+//        let dateFormatter = DateFormatter()
+//        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+//        let logEntry = "\(dateFormatter.string(from: Date())) - Backup Failed: User aborted\n"
+//        
+//        // Get log file path from AppDelegate
+//        if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
+//            let logFilePath = appDelegate.logFilePath
+//            
+//            do {
+//                if let fileHandle = FileHandle(forWritingAtPath: logFilePath) {
+//                    fileHandle.seekToEndOfFile()
+//                    fileHandle.write(logEntry.data(using: .utf8)!)
+//                    fileHandle.closeFile()
+//                } else {
+//                    try logEntry.write(toFile: logFilePath, atomically: true, encoding: .utf8)
+//                }
+//            } catch {
+//                print("DEBUG: Failed to log user abort: \(error)")
+//            }
+//        }
+//    }
     private func logUserAbort() {
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-        let logEntry = "\(dateFormatter.string(from: Date())) - Backup Failed: User aborted\n"
-        
-        // Get log file path from AppDelegate
-        if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
-            let logFilePath = appDelegate.logFilePath
-            
-            do {
-                if let fileHandle = FileHandle(forWritingAtPath: logFilePath) {
-                    fileHandle.seekToEndOfFile()
-                    fileHandle.write(logEntry.data(using: .utf8)!)
-                    fileHandle.closeFile()
-                } else {
-                    try logEntry.write(toFile: logFilePath, atomically: true, encoding: .utf8)
-                }
-            } catch {
-                print("DEBUG: Failed to log user abort: \(error)")
-            }
-        }
+        // Post notification to AppDelegate to handle logging in a thread-safe way
+        NotificationCenter.default.post(name: .logAbort, object: nil)
     }
     
     @IBAction func quitClicked(sender: NSMenuItem) {

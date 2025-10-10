@@ -1,15 +1,6 @@
 import Cocoa
 import UserNotifications
 import QuartzCore
- 
-//extension Notification.Name {
-//    static let backupDidStart = Notification.Name("backupDidStart")
-//    static let backupDidFinish = Notification.Name("backupDidFinish")
-//    static let StartBackup = Notification.Name("StartBackup")
-//    
-//    static let requestManualBackup = Notification.Name("requestManualBackup")
-//    static let updateLastBackupDisplay = Notification.Name("updateLastBackupDisplay")
-//}
 
 extension Notification.Name {
     static let backupDidStart = Notification.Name("backupDidStart")
@@ -28,8 +19,6 @@ class StatusMenuController: NSObject {
     @IBOutlet weak var abortBackupItem: NSMenuItem!
     @IBOutlet weak var backupInProgressItem: NSMenuItem!
     @IBOutlet weak var lastBackupItem: NSMenuItem!
-    private var spinTimer: Timer?
-    private var currentRotation: CGFloat = 0
     private var originalIcon: NSImage?
     
     let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -111,58 +100,53 @@ class StatusMenuController: NSObject {
     }
     
     private func startSpinningIcon() {
+        guard let button = statusItem.button,
+              let layer = button.layer else { return }
+        
+        // Stop any existing animation first
         stopSpinningIcon()
-        spinTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { [weak self] _ in
-            guard let self = self else { return }
-            self.currentRotation -= CGFloat.pi / 16
-            DispatchQueue.main.async {
-                if let originalImage = self.originalIcon {
-                    let rotatedImage = self.rotateImage(originalImage, by: self.currentRotation)
-                    rotatedImage.isTemplate = true
-                    self.statusItem.button?.image = rotatedImage
-                }
-            }
-        }
+        
+        // Get the current bounds
+        let bounds = layer.bounds
+        
+        // CRITICAL: Set anchor point to center so it rotates in place
+        // When changing anchor point, we must adjust position to keep visual location same
+        let oldAnchorPoint = layer.anchorPoint
+        let newAnchorPoint = CGPoint(x: 0.5, y: 0.5)
+        
+        // Calculate position adjustment needed
+        let oldPosition = layer.position
+        let anchorPointDelta = CGPoint(
+            x: (newAnchorPoint.x - oldAnchorPoint.x) * bounds.width,
+            y: (newAnchorPoint.y - oldAnchorPoint.y) * bounds.height
+        )
+        
+        layer.anchorPoint = newAnchorPoint
+        layer.position = CGPoint(
+            x: oldPosition.x + anchorPointDelta.x,
+            y: oldPosition.y + anchorPointDelta.y
+        )
+        
+        // Create smooth rotation animation using Core Animation
+        let rotation = CABasicAnimation(keyPath: "transform.rotation.z")
+        rotation.fromValue = 0
+        rotation.toValue = -Double.pi * 2  // Negative for counter-clockwise
+        rotation.duration = 3.0  // 2 seconds per full rotation (beach ball speed)
+        rotation.repeatCount = .infinity  // Spin forever until stopped
+        rotation.isRemovedOnCompletion = false
+        
+        // Add the animation to the button's layer
+        layer.add(rotation, forKey: "rotationAnimation")
     }
-    
+
     private func stopSpinningIcon() {
-        spinTimer?.invalidate()
-        spinTimer = nil
-        currentRotation = 0
+        guard let button = statusItem.button else { return }
         
-        DispatchQueue.main.async {
-            if let originalImage = self.originalIcon {
-                originalImage.isTemplate = true
-                self.statusItem.button?.image = originalImage
-            }
-        }
-    }
-    
-    // Optimized rotation to minimize pulsing
-    private func rotateImage(_ image: NSImage, by angle: CGFloat) -> NSImage {
-        let size = image.size
-        let rotatedImage = NSImage(size: size)
+        // Remove the animation
+        button.layer?.removeAnimation(forKey: "rotationAnimation")
         
-        rotatedImage.lockFocus()
-        
-        // High quality rendering
-        if let context = NSGraphicsContext.current {
-            context.imageInterpolation = .high
-            context.shouldAntialias = true
-        }
-        
-        // Transform around center
-        let transform = NSAffineTransform()
-        transform.translateX(by: size.width / 2, yBy: size.height / 2)
-        transform.rotate(byRadians: angle)
-        transform.translateX(by: -size.width / 2, yBy: -size.height / 2)
-        transform.concat()
-        
-        // Draw image - simple approach
-        image.draw(at: .zero, from: .zero, operation: .sourceOver, fraction: 1.0)
-        
-        rotatedImage.unlockFocus()
-        return rotatedImage
+        // Reset to original non-rotated state
+        button.layer?.transform = CATransform3DIdentity
     }
     
     @objc func backupDidStart() {
@@ -207,30 +191,7 @@ class StatusMenuController: NSObject {
         
         notifyUser(title: "Backup Aborted", informativeText: "The backup process has been cancelled.")
     }
- 
-    // Add this new method to StatusMenuController
-//    private func logUserAbort() {
-//        let dateFormatter = DateFormatter()
-//        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-//        let logEntry = "\(dateFormatter.string(from: Date())) - Backup Failed: User aborted\n"
-//        
-//        // Get log file path from AppDelegate
-//        if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
-//            let logFilePath = appDelegate.logFilePath
-//            
-//            do {
-//                if let fileHandle = FileHandle(forWritingAtPath: logFilePath) {
-//                    fileHandle.seekToEndOfFile()
-//                    fileHandle.write(logEntry.data(using: .utf8)!)
-//                    fileHandle.closeFile()
-//                } else {
-//                    try logEntry.write(toFile: logFilePath, atomically: true, encoding: .utf8)
-//                }
-//            } catch {
-//                print("DEBUG: Failed to log user abort: \(error)")
-//            }
-//        }
-//    }
+
     private func logUserAbort() {
         // Post notification to AppDelegate to handle logging in a thread-safe way
         NotificationCenter.default.post(name: .logAbort, object: nil)

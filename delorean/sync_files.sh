@@ -18,11 +18,11 @@ cleanup() {
 trap cleanup SIGINT SIGTERM
  
 # Backup scheduling parameters
-scheduledBackupTime="11:32"
+scheduledBackupTime="8:10"
 rangeStart="07:00"
 rangeEnd="21:00"
 # How often the app should check if an rsync happened that day in seconds (3600 seconds = 1 hour)
-frequencyCheck="60"
+frequencyCheck="3600"
 maxDayAttemptNotification=6
  
 # Define source directories

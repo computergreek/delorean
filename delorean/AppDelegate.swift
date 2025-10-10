@@ -1,5 +1,6 @@
 import Cocoa
 import UserNotifications
+import ServiceManagement
  
 @NSApplicationMain
 class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
@@ -83,6 +84,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     
     // MARK: - App Lifecycle
     func applicationDidFinishLaunching(_ aNotification: Notification) {
+        registerAsLoginItem()  // ← THIS IS THE ONLY NEW LINE
+        
         NotificationCenter.default.addObserver(self, selector: #selector(backupDidStart), name: .backupDidStart, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(backupDidFinish(notification:)), name: .backupDidFinish, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(handleManualBackupRequest), name: .requestManualBackup, object: nil)
@@ -93,6 +96,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         
         // Simple solution: use the shared instance (XIB will set it up)
         statusMenuController = StatusMenuController.shared
+    }
+    
+    private func registerAsLoginItem() {
+        if #available(macOS 13.0, *) {
+            try? SMAppService.mainApp.register()
+        }
     }
     
     @objc private func handleLogAbort() {

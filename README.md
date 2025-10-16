@@ -114,6 +114,15 @@ pkgbuild --root . \
   --version 1.0 \
   --install-location /Applications \
   UF-EM-DeLorean-Backup.pkg
+```
+
+<!-- Navigate to where your DeLorean.app is located in Terminal
+
+`cd /path/to/your/DeLorean.app/..`
+
+Create the package
+
+`pkgbuild --root . --identifier ufemit.delorean --version 1.0 --install-location /Applications UF-EM-DeLorean-Backup.pkg` -->
 
 ## License
 

@@ -288,14 +288,33 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     private func isNetworkDriveAvailable() -> Bool {
         let now = Date()
         
-        // Always check on first call or if cache expired
         if !networkCacheInitialized || now.timeIntervalSince(lastNetworkCheckTime) > networkCheckCacheInterval {
-            lastNetworkCheckResult = FileManager.default.fileExists(atPath: self.dest)
+            // Extract volume path from DEST (e.g., "/Volumes/SFA-All/User Data/johndoe/" → "/Volumes/SFA-All")
+            let volumePath = extractVolumePath(from: self.dest)
+            
+            lastNetworkCheckResult = FileManager.default.fileExists(atPath: volumePath)
+            
             lastNetworkCheckTime = now
             networkCacheInitialized = true
         }
         
         return lastNetworkCheckResult
+    }
+    
+    private func extractVolumePath(from destPath: String) -> String {
+        // Split path and find the volume component
+        let components = destPath.split(separator: "/").map(String.init)
+        
+        // Find "Volumes" index
+        guard let volumesIndex = components.firstIndex(of: "Volumes"),
+              volumesIndex + 1 < components.count else {
+            // Fallback: if not a /Volumes/ path, return the original path
+            return destPath
+        }
+        
+        // Return "/Volumes/VolumeName"
+        let volumeName = components[volumesIndex + 1]
+        return "/Volumes/\(volumeName)"
     }
  
     @objc private func checkBackupSchedule() {

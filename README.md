@@ -52,8 +52,41 @@ Back up only Documents and Pictures to a different network drive at 6 PM:
 
 ## Notes for Users
 
-- On first launch, macOS may prompt for access to Desktop, Documents, and Downloads. Click “OK/Allow” so DeLorean can back up those folders.
+### ⚠️ First-Time Setup
+
+After installing DeLorean, you'll **really** want to consider granting it Full Disk Access:
+
+#### macOS Ventura (13.0+) or Sonoma (14.0+):
+
+1. Open **System Settings**
+2. Click **Privacy & Security** in the sidebar
+3. Scroll down and click **Full Disk Access**
+4. Click the **(+)** button
+5. Navigate to `/Applications/DeLorean.app` and click **Open**
+6. Toggle the switch next to DeLorean to **ON**
+7. Quit and restart DeLorean
+
+#### macOS Monterey (12.0) or earlier:
+
+1. Open **System Preferences**
+2. Click **Security & Privacy**
+3. Click the **Privacy** tab
+4. Select **Full Disk Access** from the list
+5. Click the lock icon 🔒 and enter your password
+6. Click the **(+)** button
+7. Navigate to `/Applications/DeLorean.app` and click **Open**
+8. Quit and restart DeLorean
+
+**Without this permission, DeLorean might not be able to access all your files in your user profile for backup.**
+
+- As it's configured right now, macOS will prompt for access to Desktop, Documents, and Downloads on first launch. Click “OK/Allow” so DeLorean can back up those folders.
 - Ensure the network destination is mounted and accessible before running a backup.
+
+### Important System Requirements
+
+- **macOS 12.0 (Monterey) or later** recommended
+- DeLorean automatically launches at login to perform scheduled backups
+- Network drive must be mounted before backup attempts
 
 ## Development Setup
 
@@ -62,14 +95,33 @@ Back up only Documents and Pictures to a different network drive at 6 PM:
 3. Modify `delorean/sync_files.sh` as needed
 4. Build and run
 
-## Creating a PKG from the DeLorean.app file
-Navigate to where your DeLorean.app is located in Terminal
+## Creating a PKG Installer
+from the DeLorean.app file
+
+### Using Packages (GUI Method - Recommended)
+1. Download [Packages](http://s.sudre.free.fr/Software/Packages/about.html)
+2. Create a new project
+3. Add DeLorean.app with install location `/Applications`
+4. Build the installer package
+
+### Using pkgbuild (Command Line Method)
+Navigate to where your DeLorean.app is located:
+```bash
+cd /path/to/your/DeLorean.app/..
+
+pkgbuild --root . \
+  --identifier ufemit.delorean \
+  --version 1.0 \
+  --install-location /Applications \
+  UF-EM-DeLorean-Backup.pkg
+
+<!-- Navigate to where your DeLorean.app is located in Terminal
 
 `cd /path/to/your/DeLorean.app/..`
 
 Create the package
 
-`pkgbuild --root . --identifier ufemit.delorean --version 1.0 --install-location /Applications UF-EM-DeLorean-Backup.pkg`
+`pkgbuild --root . --identifier ufemit.delorean --version 1.0 --install-location /Applications UF-EM-DeLorean-Backup.pkg` -->
 
 ## License
 

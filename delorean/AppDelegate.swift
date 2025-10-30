@@ -20,10 +20,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     var lastOverdueNotificationDate: Date?
     private var todaysBackupStatus: BackupStatus = .notAttempted
     private var lastStatusCheckDate: String = ""
-    private var lastNetworkCheckTime: Date = Date.distantPast
-    private var lastNetworkCheckResult: Bool = false
-    private var networkCacheInitialized: Bool = false
-    private let networkCheckCacheInterval: TimeInterval = 30
 
     enum BackupStatus {
         case notAttempted
@@ -286,19 +282,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     }
     
     private func isNetworkDriveAvailable() -> Bool {
-        let now = Date()
-        
-        if !networkCacheInitialized || now.timeIntervalSince(lastNetworkCheckTime) > networkCheckCacheInterval {
-            // Extract volume path from DEST (e.g., "/Volumes/SFA-All/User Data/johndoe/" → "/Volumes/SFA-All")
-            let volumePath = extractVolumePath(from: self.dest)
-            
-            lastNetworkCheckResult = FileManager.default.fileExists(atPath: volumePath)
-            
-            lastNetworkCheckTime = now
-            networkCacheInitialized = true
-        }
-        
-        return lastNetworkCheckResult
+        let volumePath = extractVolumePath(from: self.dest)
+        return FileManager.default.fileExists(atPath: volumePath)
     }
     
     private func extractVolumePath(from destPath: String) -> String {

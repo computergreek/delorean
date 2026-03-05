@@ -90,21 +90,27 @@ class StatusMenuController: NSObject {
                 } else {
                     let exitCode = process.terminationStatus
                     let isManual = (NSApplication.shared.delegate as? AppDelegate)?.isManualBackup ?? false
+                    
                     if exitCode == 0 {
                         // Perfect success
                         if isManual {
                             self.notifyUser(title: "Backup Completed",
-                                            informativeText: "Your files have been successfully backed up.")
+                                        informativeText: "Your files have been successfully backed up.")
                         }
                     } else if exitCode == 2 {
-                        // Success with warnings (only manual backups use this code)
+                        // Success with warnings
                         self.notifyUser(title: "Backup Completed",
-                                        informativeText: "Your files have been backed up, but some files could not be copied due to unsupported characters or length. Check delorean.log for details.")
+                                    informativeText: "Your files have been backed up, but some files could not be copied due to unsupported characters or length. Check delorean.log for details.")
+                    } else if exitCode == 99 {
+                        // Configuration error
+                        self.notifyUser(title: "Configuration Error",
+                                    informativeText: "DeLorean configuration is incomplete or invalid. Contact IT support.")
                     } else {
                         // Real failure
                         self.notifyUser(title: "Backup Failed",
-                                        informativeText: "There was an issue with the backup process.")
+                                    informativeText: "There was an issue with the backup process.")
                     }
+                    
                     // Treat exit 2 as success for AppDelegate tracking
                     let success = (exitCode == 0 || exitCode == 2)
                     NotificationCenter.default.post(name: .backupDidFinish, object: nil, userInfo: ["success": success])

@@ -26,6 +26,22 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         case successful
         case networkUnavailable
     }
+    
+    private func readDestinationFromPlist() -> String? {
+        let plistPath = "\(NSHomeDirectory())/Library/Preferences/com.ufemit.delorean.plist"
+        
+        if let plistDict = NSDictionary(contentsOfFile: plistPath),
+           let destPath = plistDict["destinationPath"] as? String {
+            // Expand environment variables
+            let expandedPath = destPath
+                .replacingOccurrences(of: "$(whoami)", with: NSUserName())
+                .replacingOccurrences(of: "$HOME", with: NSHomeDirectory())
+            return expandedPath
+        }
+        
+        // No fallback - return nil if plist doesn't exist
+        return nil
+    }
 
     private lazy var timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -145,12 +161,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             return
         }
         
-        // Check if network drive is available for manual backup
-        if !isNetworkDriveAvailable() {
-            writeToLog("Backup Failed: Network drive not mounted (manual backup)")
-            notifyUser(title: "Backup Failed", informativeText: "Network drive is not accessible.")
-            return
+        // Try to read destination from plist
+        if let destination = readDestinationFromPlist() {
+            self.dest = destination
+            
+            // Check if network drive is available
+            if !isNetworkDriveAvailable() {
+                writeToLog("Backup Failed: Network drive not mounted (manual backup)")
+                notifyUser(title: "Backup Failed", informativeText: "Network drive is not accessible.")
+                return
+            }
         }
+        // If plist doesn't exist, let bash script handle it
         
         isManualBackup = true
         writeToLog("Manual backup initiated")
@@ -160,109 +182,79 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
  
     // MARK: - Backup Configuration and Schedule
     private func loadConfig() {
-        guard let scriptPath = Bundle.main.path(forResource: "sync_files", ofType: "sh") else {
-            print("Failed to locate sync_files.sh")
+        let plistPath = "\(NSHomeDirectory())/Library/Preferences/com.ufemit.delorean.plist"
+        
+        // Check if plist exists
+        guard let plistDict = NSDictionary(contentsOfFile: plistPath) as? [String: Any] else {
+            print("WARNING: Plist doesn't exist yet. Will be created on first backup run.")
+            // Set minimal defaults so the app doesn't crash
+            self.backupHour = "08"
+            self.backupMinute = "10"
+            self.rangeStart = "07:00"
+            self.rangeEnd = "21:00"
+            self.frequency = 3600
+            self.maxDayAttemptNotification = 6
+            self.logFilePath = "\(NSHomeDirectory())/delorean.log"
+            
+            // Start timer with defaults
+            self.startBackupTimer()
+            self.updateLastBackupStatus()
             return
         }
         
-        // Read file directly instead of using shell commands
-        guard let scriptContent = try? String(contentsOfFile: scriptPath) else {
-            print("Failed to read sync_files.sh")
-            return
-        }
-        
-        let lines = scriptContent.components(separatedBy: .newlines)
-        
-        for line in lines {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            
-            // Skip comments and empty lines
-            if trimmed.hasPrefix("#") || trimmed.isEmpty || !trimmed.contains("=") {
-                continue
-            }
-            
-            let components = trimmed.split(separator: "=", maxSplits: 1).map { String($0) }
-            if components.count == 2 {
-                let key = components[0].trimmingCharacters(in: .whitespaces)
-                let rawValue = components[1].trimmingCharacters(in: .whitespaces)
-                
-                switch key {
-                case "scheduledBackupTime":
-                    let value = expandShellVariables(rawValue.trimmingCharacters(in: CharacterSet(charactersIn: "\"")))
-                    let timeComponents = value.split(separator: ":").map { String($0) }
-                    if timeComponents.count == 2 {
-                        self.backupHour = timeComponents[0]
-                        self.backupMinute = timeComponents[1]
-                    }
-                case "rangeStart":
-                    self.rangeStart = expandShellVariables(rawValue.trimmingCharacters(in: CharacterSet(charactersIn: "\"")))
-                case "rangeEnd":
-                    self.rangeEnd = expandShellVariables(rawValue.trimmingCharacters(in: CharacterSet(charactersIn: "\"")))
-                case "frequencyCheck":
-                    let value = expandShellVariables(rawValue.trimmingCharacters(in: CharacterSet(charactersIn: "\"")))
-                    self.frequency = TimeInterval(value) ?? 3600
-                case "maxDayAttemptNotification":
-                    let value = expandShellVariables(rawValue.trimmingCharacters(in: CharacterSet(charactersIn: "\"")))
-                    self.maxDayAttemptNotification = Int(value) ?? 6
-                case "SOURCES":
-                    self.sources = parseShellArray(rawValue)
-                case "DEST":
-                    self.dest = expandShellVariables(rawValue.trimmingCharacters(in: CharacterSet(charactersIn: "\"")))
-                case "LOG_FILE":
-                    self.logFilePath = expandShellVariables(rawValue.trimmingCharacters(in: CharacterSet(charactersIn: "\"")))
-                default:
-                    break
-                }
+        // Read scheduled backup time
+        if let timeString = plistDict["scheduledBackupTime"] as? String {
+            let timeComponents = timeString.split(separator: ":").map { String($0) }
+            if timeComponents.count == 2 {
+                self.backupHour = timeComponents[0]
+                self.backupMinute = timeComponents[1]
             }
         }
+        
+        // Read range times
+        if let start = plistDict["rangeStart"] as? String {
+            self.rangeStart = start
+        }
+        if let end = plistDict["rangeEnd"] as? String {
+            self.rangeEnd = end
+        }
+        
+        // Read frequency
+        if let freq = plistDict["frequencyCheck"] as? Int {
+            self.frequency = TimeInterval(freq)
+        }
+        
+        // Read max notification days
+        if let maxDays = plistDict["maxDayAttemptNotification"] as? Int {
+            self.maxDayAttemptNotification = maxDays
+        }
+        
+        // Read and expand log file path
+        if let logPath = plistDict["logFilePath"] as? String {
+            self.logFilePath = logPath
+                .replacingOccurrences(of: "$HOME", with: NSHomeDirectory())
+                .replacingOccurrences(of: "$(whoami)", with: NSUserName())
+        }
+        
+        // Read and expand destination
+        if let destPath = plistDict["destinationPath"] as? String {
+            self.dest = destPath
+                .replacingOccurrences(of: "$HOME", with: NSHomeDirectory())
+                .replacingOccurrences(of: "$(whoami)", with: NSUserName())
+        }
+        
+        // Read sources array
+        if let sourcesArray = plistDict["sources"] as? [String] {
+            self.sources = sourcesArray.map { path in
+                path.replacingOccurrences(of: "$HOME", with: NSHomeDirectory())
+                    .replacingOccurrences(of: "$(whoami)", with: NSUserName())
+            }
+        }
+        
+        print("DEBUG: Loaded config from plist - Backup time: \(backupHour):\(backupMinute)")
         
         self.startBackupTimer()
         self.updateLastBackupStatus()
-    }
- 
-    // Helper function to expand shell variables
-    private func expandShellVariables(_ value: String) -> String {
-        return value
-            .replacingOccurrences(of: "$HOME", with: NSHomeDirectory())
-            .replacingOccurrences(of: "$(whoami)", with: NSUserName())
-    }
- 
-    // Helper function to properly parse bash arrays
-    private func parseShellArray(_ rawValue: String) -> [String] {
-        let trimmed = rawValue.trimmingCharacters(in: .whitespaces)
-        
-        // Handle array format: ("item1" "item2" "item3")
-        if trimmed.hasPrefix("(") && trimmed.hasSuffix(")") {
-            let arrayContent = String(trimmed.dropFirst().dropLast()).trimmingCharacters(in: .whitespaces)
-            
-            var sources: [String] = []
-            var current = ""
-            var inQuotes = false
-            
-            for char in arrayContent {
-                switch char {
-                case "\"":
-                    inQuotes.toggle()
-                case " " where !inQuotes:
-                    if !current.isEmpty {
-                        sources.append(expandShellVariables(current))
-                        current = ""
-                    }
-                default:
-                    current.append(char)
-                }
-            }
-            
-            // Don't forget the last item
-            if !current.isEmpty {
-                sources.append(expandShellVariables(current))
-            }
-            
-            return sources
-        }
-        
-        // Fallback for non-array format
-        return [expandShellVariables(trimmed.trimmingCharacters(in: CharacterSet(charactersIn: "\"")))]
     }
  
     private func startBackupTimer() {
@@ -285,7 +277,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         let volumePath = extractVolumePath(from: self.dest)
         return FileManager.default.fileExists(atPath: volumePath)
     }
-    
+
     private func extractVolumePath(from destPath: String) -> String {
         // Split path and find the volume component
         let components = destPath.split(separator: "/").map(String.init)
@@ -309,8 +301,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         let currentDateString = logDateFormatter.string(from: Date()).prefix(10)
         
         guard let currentTime = timeFormatter.date(from: currentTimeString),
-              let rangeEndTime = timeFormatter.date(from: self.rangeEnd),
-              let backupTime = timeFormatter.date(from: "\(self.backupHour):\(self.backupMinute)") else {
+            let rangeEndTime = timeFormatter.date(from: self.rangeEnd),
+            let backupTime = timeFormatter.date(from: "\(self.backupHour):\(self.backupMinute)") else {
             return
         }
         
@@ -326,12 +318,29 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         // If we already succeeded today, skip all further checks
         if todaysBackupStatus == .successful { return }
         
+        // Try to read destination from plist
+        guard let destination = readDestinationFromPlist() else {
+            // Plist doesn't exist yet - bash script will create it on first run
+            // Skip the drive check and let bash handle everything
+            guard let scriptPath = Bundle.main.path(forResource: "sync_files", ofType: "sh") else {
+                print("ERROR: Failed to locate sync_files.sh during scheduled backup")
+                return
+            }
+            isManualBackup = false
+            writeToLog("Scheduled backup initiated")
+            isBackupRunning = true
+            NotificationCenter.default.post(name: .StartBackup, object: nil, userInfo: ["scriptPath": scriptPath])
+            return
+        }
+        
+        // Plist exists, update dest and check if drive is mounted
+        self.dest = destination
+        
         // Check network drive availability
         if !isNetworkDriveAvailable() {
             // Only log once per day when drive is unavailable
             if todaysBackupStatus != .networkUnavailable {
                 todaysBackupStatus = .networkUnavailable
-                
                 writeToLog("Backup Failed: Network drive not mounted (scheduled backup)")
             }
             return
@@ -343,7 +352,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             return
         }
 
-        isManualBackup = false  // ← Mark this as scheduled
+        isManualBackup = false
         writeToLog("Scheduled backup initiated")
         isBackupRunning = true
         NotificationCenter.default.post(name: .StartBackup, object: nil, userInfo: ["scriptPath": scriptPath])

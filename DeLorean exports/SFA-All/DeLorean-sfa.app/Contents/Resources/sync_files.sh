@@ -187,8 +187,10 @@ if [ "$rsync_exit_code" -eq 0 ]; then
 elif [ "$rsync_exit_code" -eq 23 ] || [ "$rsync_exit_code" -eq 24 ]; then
     if grep -qE "^\[sender\] cannot convert filename:" "$ERROR_TEMP"; then
         log_success
-        log_entry "Warning: Some files could not be backed up due to unsupported characters in filename"
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - Files that could not be backed up:" >> "$LOG_FILE"
+#        log_entry "Warning: Some files could not be backed up due to unsupported characters in filename"
+#        echo "$(date '+%Y-%m-%d %H:%M:%S') - Files that could not be backed up:" >> "$LOG_FILE"
+        echo "Warning: Some files could not be backed up due to unsupported characters in filename" >> "$LOG_FILE"
+        echo "Files that could not be backed up:" >> "$LOG_FILE"
         grep -E "^\[sender\] cannot convert filename:" "$ERROR_TEMP" \
             | sed 's/\[sender\] cannot convert filename: //' \
             | sed 's/ (Illegal byte sequence)//' \

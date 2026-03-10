@@ -10,15 +10,19 @@
 		</data>
 		<key>Resources/Assets.car</key>
 		<data>
-		vgYJAtCv+XdRUGzcyfD08b1fNow=
+		xRpoW18k/GySaYWo+ckzp4HUs0Q=
 		</data>
 		<key>Resources/Base.lproj/MainMenu.nib</key>
 		<data>
 		kzkm23WeYF1hN7dehNQS8MFRTpg=
 		</data>
+		<key>Resources/rsync_v3.4.1</key>
+		<data>
+		eSI2BKSxvu0J1qEp3vgUIUq25EA=
+		</data>
 		<key>Resources/sync_files.sh</key>
 		<data>
-		Ns8vSQWngjY4LoD6kavvE0ZFxqo=
+		VHY2DXBunC2oSzScoq7cGwQwlfs=
 		</data>
 	</dict>
 	<key>files2</key>
@@ -34,7 +38,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			RUpTVSBKZzpS0GbqSHeNQpm59FyG/HavhtgvPnp50ts=
+			iowp6g365vzdDEuwyMp9k9DwAvv8ALapgURuez7jJ5s=
 			</data>
 		</dict>
 		<key>Resources/Base.lproj/MainMenu.nib</key>
@@ -44,11 +48,18 @@
 			oo9RYaUowJI6Z6Djelw/YJo4YAiH5PGKlL1wtWhfgbQ=
 			</data>
 		</dict>
+		<key>Resources/rsync_v3.4.1</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			ybLLGjtEAywmNEfNMhpH3xQtNxAdPH+O6Dc/4u0RP3g=
+			</data>
+		</dict>
 		<key>Resources/sync_files.sh</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			XQZvLf8qhFBARdH+T8eowzrWuq79OvFyn8mx2wFUDmM=
+			r8JA6IOocP+BWnopigqAknos2zQXgtqu7G4NCa6TFY0=
 			</data>
 		</dict>
 	</dict>

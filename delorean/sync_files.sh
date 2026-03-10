@@ -27,6 +27,7 @@ create_default_plist() {
     /usr/libexec/PlistBuddy -c "Add :rangeEnd string '21:00'" "$PLIST"
     /usr/libexec/PlistBuddy -c "Add :frequencyCheck integer 3600" "$PLIST"
     /usr/libexec/PlistBuddy -c "Add :maxDayAttemptNotification integer 6" "$PLIST"
+#    /usr/libexec/PlistBuddy -c "Add :destinationPath string '/Volumes/\$(whoami)/SYSTEM/delorean/'" "$PLIST"
     /usr/libexec/PlistBuddy -c "Add :destinationPath string '/Volumes/SFA-All/User Data/\$(whoami)/'" "$PLIST"
     /usr/libexec/PlistBuddy -c "Add :logFilePath string '\$HOME/delorean.log'" "$PLIST"
     /usr/libexec/PlistBuddy -c "Add :sources array" "$PLIST"
@@ -45,7 +46,7 @@ create_default_plist() {
     /usr/libexec/PlistBuddy -c "Add :excludePatterns:7 string '*-shm'" "$PLIST"
     /usr/libexec/PlistBuddy -c "Add :excludePatterns:8 string '*-wal'" "$PLIST"
     /usr/libexec/PlistBuddy -c "Add :excludePatterns:9 string '*.tmp'" "$PLIST"
-    /usr/libexec/PlistBuddy -c "Add :excludePatterns:10 string '*.png'" "$PLIST"
+    /usr/libexec/PlistBuddy -c "Add :excludePatterns:10 string '._*'" "$PLIST"
     /usr/libexec/PlistBuddy -c "Add :excludePatterns:11 string '*.pkg'" "$PLIST"
     /usr/libexec/PlistBuddy -c "Add :excludePatterns:12 string '*.iso'" "$PLIST"
     /usr/libexec/PlistBuddy -c "Add :excludePatterns:13 string '*.app'" "$PLIST"
@@ -66,7 +67,6 @@ create_default_plist() {
     /usr/libexec/PlistBuddy -c "Add :excludePatterns:28 string '.Trashes'" "$PLIST"
     /usr/libexec/PlistBuddy -c "Add :excludePatterns:29 string '.fseventsd'" "$PLIST"
     /usr/libexec/PlistBuddy -c "Add :excludePatterns:30 string '.TemporaryItems'" "$PLIST"
-    /usr/libexec/PlistBuddy -c "Add :excludePatterns:31 string '._*'" "$PLIST"
 }
 
 # ----------------------------------------------------------------------
@@ -187,8 +187,10 @@ if [ "$rsync_exit_code" -eq 0 ]; then
 elif [ "$rsync_exit_code" -eq 23 ] || [ "$rsync_exit_code" -eq 24 ]; then
     if grep -qE "^\[sender\] cannot convert filename:" "$ERROR_TEMP"; then
         log_success
-        log_entry "Warning: Some files could not be backed up due to unsupported characters in filename"
-        echo "$(date '+%Y-%m-%d %H:%M:%S') - Files that could not be backed up:" >> "$LOG_FILE"
+#        log_entry "Warning: Some files could not be backed up due to unsupported characters in filename"
+#        echo "$(date '+%Y-%m-%d %H:%M:%S') - Files that could not be backed up:" >> "$LOG_FILE"
+        echo "Warning: Some files could not be backed up due to unsupported characters in filename" >> "$LOG_FILE"
+        echo "Files that could not be backed up:" >> "$LOG_FILE"
         grep -E "^\[sender\] cannot convert filename:" "$ERROR_TEMP" \
             | sed 's/\[sender\] cannot convert filename: //' \
             | sed 's/ (Illegal byte sequence)//' \
